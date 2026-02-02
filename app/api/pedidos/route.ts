@@ -49,31 +49,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
+  let body: unknown;
   try {
-    const body = await request.json();
-    const parsed = createPedidoSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Datos inválidos", details: parsed.error.flatten().fieldErrors },
-        { status: 400 }
-      );
-    }
-    const data = parsed.data;
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Body JSON inválido o vacío" }, { status: 400 });
+  }
 
-    const cliente = await prisma.cliente.findFirst({
-      where: { id: data.clienteId, tenantId: session.tenantId },
-    });
-    if (!cliente) {
-      return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
-    }
+  const parsed = createPedidoSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Datos inválidos", details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    );
+  }
+  const data = parsed.data;
 
+  const cliente = await prisma.cliente.findFirst({
+    where: { id: data.clienteId, tenantId: session.tenantId },
+  });
+  if (!cliente) {
+    return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
+  }
+
+  try {
     const pedido = await prisma.pedido.create({
       data: {
         tenantId: session.tenantId,
         clienteId: data.clienteId,
         estado: data.estado ?? "CREATED",
-        cantidad: data.cantidad,
-        observaciones: data.observaciones,
+        cantidad: data.cantidad ?? null,
+        observaciones: data.observaciones ?? null,
       },
       select: {
         id: true,
@@ -87,7 +93,8 @@ export async function POST(request: Request) {
       },
     });
     return NextResponse.json(pedido, { status: 201 });
-  } catch {
+  } catch (err) {
+    console.error("POST /api/pedidos error:", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }
