@@ -77,7 +77,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       },
     });
     return NextResponse.json(pedido);
-  } catch {
+  } catch (err) {
+    console.error("PATCH /api/pedidos/[id] error:", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }

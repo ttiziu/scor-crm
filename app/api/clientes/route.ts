@@ -4,25 +4,30 @@ import { getSession } from "@/lib/auth/get-session";
 import { createClienteSchema } from "@/lib/validations/clientes";
 
 export async function GET(request: Request) {
-  const session = await getSession(request);
-  if (!session) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+  try {
+    const session = await getSession(request);
+    if (!session) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
 
-  const clientes = await prisma.cliente.findMany({
-    where: { tenantId: session.tenantId },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      name: true,
-      documento: true,
-      direccion: true,
-      telefono: true,
-      email: true,
-      createdAt: true,
-    },
-  });
-  return NextResponse.json(clientes);
+    const clientes = await prisma.cliente.findMany({
+      where: { tenantId: session.tenantId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        documento: true,
+        direccion: true,
+        telefono: true,
+        email: true,
+        createdAt: true,
+      },
+    });
+    return NextResponse.json(clientes);
+  } catch (err) {
+    console.error("GET /api/clientes error:", err);
+    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -63,7 +68,8 @@ export async function POST(request: Request) {
       },
     });
     return NextResponse.json(cliente, { status: 201 });
-  } catch {
+  } catch (err) {
+    console.error("POST /api/clientes error:", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }

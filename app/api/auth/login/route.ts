@@ -46,7 +46,8 @@ export async function POST(request: Request) {
     });
     response.headers.set("Set-Cookie", setSessionCookie(token));
     return response;
-  } catch {
+  } catch (err) {
+    console.error("POST /api/auth/login error:", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }
