@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 type Cliente = { id: string; name: string; documento?: string | null };
@@ -42,6 +42,7 @@ function todayISO() {
 
 export default function PedidosPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -67,11 +68,18 @@ export default function PedidosPage() {
   const [clienteDropdownOpen, setClienteDropdownOpen] = useState(false);
   const [clienteDetalle, setClienteDetalle] = useState<ClienteDetalle | null>(null);
   const [fechaFiltro, setFechaFiltro] = useState(() => todayISO());
+  const [repartidorFiltro, setRepartidorFiltro] = useState("");
+  const [clienteBusqueda, setClienteBusqueda] = useState("");
   const [cancelando, setCancelando] = useState<{ id: string; motivo: string } | null>(null);
+  const [formasPago, setFormasPago] = useState<{ value: string; label: string }[]>([]);
   const clienteInputRef = useRef<HTMLInputElement>(null);
 
   function loadPedidos() {
-    const url = `/api/pedidos?fecha=${fechaFiltro}`;
+    const params = new URLSearchParams();
+    if (fechaFiltro) params.set("fecha", fechaFiltro);
+    if (repartidorFiltro) params.set("repartidorId", repartidorFiltro);
+    if (clienteBusqueda.trim()) params.set("clienteQuery", clienteBusqueda.trim());
+    const url = `/api/pedidos?${params.toString()}`;
     fetch(url, { credentials: "include" })
       .then((res) => res.json())
       .then((data) => (Array.isArray(data) ? setPedidos(data) : setPedidos([])))
@@ -123,6 +131,10 @@ export default function PedidosPage() {
         loadClientes();
         loadProductos();
         loadUsuarios();
+        fetch("/api/formas-pago", { credentials: "include" })
+          .then((r) => (r.ok ? r.json() : []))
+          .then((d) => (Array.isArray(d) && d.length > 0 ? setFormasPago(d) : setFormasPago([{ value: "YAPE", label: "Yape" }, { value: "PLIN", label: "Plin" }, { value: "TRANSFERENCIA", label: "Transferencia" }, { value: "EFECTIVO", label: "Efectivo" }, { value: "TARJETA", label: "Tarjeta" }])))
+          .catch(() => {});
       })
       .catch(() => router.replace("/login"))
       .finally(() => setLoading(false));
@@ -151,9 +163,23 @@ export default function PedidosPage() {
       .catch(() => setClienteDetalle(null));
   }, [form.clienteId]);
 
+  // Preseleccionar cliente y abrir formulario si se viene desde Clientes con ?clienteId=...
+  useEffect(() => {
+    if (!authOk || clientes.length === 0) return;
+    const clienteId = searchParams.get("clienteId");
+    if (!clienteId) return;
+    const c = clientes.find((x) => x.id === clienteId);
+    if (c) {
+      setForm((f) => ({ ...f, clienteId }));
+      setClienteSearch(`${c.name}${c.documento ? " — " + c.documento : ""}`);
+      setFormOpen(true);
+      router.replace("/pedidos", { scroll: false });
+    }
+  }, [authOk, clientes, searchParams, router]);
+
   useEffect(() => {
     if (authOk) loadPedidos();
-  }, [fechaFiltro]);
+  }, [fechaFiltro, repartidorFiltro, clienteBusqueda]);
 
   async function cancelarPedido() {
     if (!cancelando) return;
@@ -433,11 +459,9 @@ export default function PedidosPage() {
                 className="w-full border rounded px-3 py-2"
               >
                 <option value="">Seleccionar</option>
-                <option value="YAPE">Yape</option>
-                <option value="PLIN">Plin</option>
-                <option value="TRANSFERENCIA">Transferencia</option>
-                <option value="EFECTIVO">Efectivo</option>
-                <option value="TARJETA">Tarjeta</option>
+                {formasPago.map((fp) => (
+                  <option key={fp.value} value={fp.value}>{fp.label}</option>
+                ))}
               </select>
             </div>
             {form.formaPago === "EFECTIVO" && (
@@ -530,6 +554,7 @@ export default function PedidosPage() {
           value={fechaFiltro}
           onChange={(e) => setFechaFiltro(e.target.value)}
           className="border rounded px-3 py-2 [color-scheme:light]"
+          title="Dejar vacío para ver todos los pedidos (útil al buscar por cliente)"
         />
         <button
           type="button"
@@ -538,6 +563,37 @@ export default function PedidosPage() {
         >
           Hoy
         </button>
+        <button
+          type="button"
+          onClick={() => setFechaFiltro("")}
+          className="py-2 px-3 rounded border text-sm hover:bg-neutral-100"
+          title="Ver todos los pedidos sin filtrar por fecha"
+        >
+          Todas las fechas
+        </button>
+        {userRole !== "REPARTIDOR" && usuarios.length > 0 && (
+          <>
+            <label className="text-sm font-medium ml-2">Repartidor:</label>
+            <select
+              value={repartidorFiltro}
+              onChange={(e) => setRepartidorFiltro(e.target.value)}
+              className="border rounded px-3 py-2 text-sm"
+            >
+              <option value="">Todos</option>
+              {usuarios.map((u) => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
+          </>
+        )}
+        <label className="text-sm font-medium ml-2">Cliente (nombre o doc.):</label>
+        <input
+          type="text"
+          value={clienteBusqueda}
+          onChange={(e) => setClienteBusqueda(e.target.value)}
+          placeholder="Buscar por nombre o documento..."
+          className="border rounded px-3 py-2 text-sm w-48"
+        />
       </div>
 
       {cancelando && (
@@ -580,7 +636,7 @@ export default function PedidosPage() {
             {pedidos.length === 0 ? (
               <tr>
                 <td colSpan={9} className="border border-neutral-300 px-3 py-4 text-center text-neutral-500">
-                  No hay pedidos para esta fecha
+                  {fechaFiltro || repartidorFiltro || clienteBusqueda.trim() ? "No hay pedidos con estos filtros" : "No hay pedidos"}
                 </td>
               </tr>
             ) : (
@@ -602,6 +658,7 @@ export default function PedidosPage() {
                   </td>
                   <td className="border border-neutral-300 px-3 py-2">{p.observaciones ?? "—"}</td>
                   <td className="border border-neutral-300 px-3 py-2">
+                    <Link href={`/pedidos/${p.id}`} className="text-sm underline mr-2">Ver / Editar</Link>
                     {(p.estado === "CREATED" || p.estado === "IN_ROUTE") && (
                       <button type="button" onClick={() => { setCancelando({ id: p.id, motivo: "" }); setError(""); }} className="text-sm text-red-600 underline">Cancelar</button>
                     )}

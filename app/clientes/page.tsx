@@ -40,6 +40,7 @@ export default function ClientesPage() {
   const [nuevaDir, setNuevaDir] = useState({ nombre: "", direccion: "", distrito: "", tipoValvula: "" });
   const [editDirId, setEditDirId] = useState<string | null>(null);
   const [editDirForm, setEditDirForm] = useState({ nombre: "", direccion: "", distrito: "", tipoValvula: "" });
+  const [opcionesTipoValvula, setOpcionesTipoValvula] = useState<string[]>(["Normal", "Premium"]);
 
   function loadClientes() {
     fetch("/api/clientes", { credentials: "include" })
@@ -88,6 +89,14 @@ export default function ClientesPage() {
       .catch(() => router.replace("/login"))
       .finally(() => setLoading(false));
   }, [router]);
+
+  useEffect(() => {
+    if (!authOk) return;
+    fetch("/api/tipos-valvula", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : ["Normal", "Premium"]))
+      .then((data) => (Array.isArray(data) && data.length > 0 ? setOpcionesTipoValvula(data) : null))
+      .catch(() => {});
+  }, [authOk]);
 
   useEffect(() => {
     if (editingId) loadClienteParaEditar(editingId);
@@ -257,7 +266,8 @@ export default function ClientesPage() {
             <input placeholder="Documento" value={form.documento} onChange={(e) => setForm((f) => ({ ...f, documento: e.target.value }))} className="w-full border rounded px-3 py-2" />
             <input placeholder="Dirección" value={form.direccion} onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))} className="w-full border rounded px-3 py-2" />
             <input placeholder="Distrito" value={form.distrito} onChange={(e) => setForm((f) => ({ ...f, distrito: e.target.value }))} className="w-full border rounded px-3 py-2" />
-            <input placeholder="Tipo de válvula" value={form.tipoValvula} onChange={(e) => setForm((f) => ({ ...f, tipoValvula: e.target.value }))} className="w-full border rounded px-3 py-2" />
+            <input list="tipoValvula-list-new" placeholder="Tipo de válvula (ej. Normal, Premium)" value={form.tipoValvula} onChange={(e) => setForm((f) => ({ ...f, tipoValvula: e.target.value }))} className="w-full border rounded px-3 py-2" />
+            <datalist id="tipoValvula-list-new">{opcionesTipoValvula.map((o) => <option key={o} value={o} />)}</datalist>
             <input placeholder="Teléfono" value={form.telefono} onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))} className="w-full border rounded px-3 py-2" />
             <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className="w-full border rounded px-3 py-2" />
             {error && <p className="text-sm text-red-600">{error}</p>}
@@ -274,7 +284,8 @@ export default function ClientesPage() {
             <input placeholder="Documento" value={editForm.documento} onChange={(e) => setEditForm((f) => ({ ...f, documento: e.target.value }))} className="w-full border rounded px-3 py-2" />
             <input placeholder="Dirección principal" value={editForm.direccion} onChange={(e) => setEditForm((f) => ({ ...f, direccion: e.target.value }))} className="w-full border rounded px-3 py-2" />
             <input placeholder="Distrito" value={editForm.distrito} onChange={(e) => setEditForm((f) => ({ ...f, distrito: e.target.value }))} className="w-full border rounded px-3 py-2" />
-            <input placeholder="Tipo de válvula" value={editForm.tipoValvula} onChange={(e) => setEditForm((f) => ({ ...f, tipoValvula: e.target.value }))} className="w-full border rounded px-3 py-2" />
+            <input list="tipoValvula-list-edit" placeholder="Tipo de válvula (ej. Normal, Premium)" value={editForm.tipoValvula} onChange={(e) => setEditForm((f) => ({ ...f, tipoValvula: e.target.value }))} className="w-full border rounded px-3 py-2" />
+            <datalist id="tipoValvula-list-edit">{opcionesTipoValvula.map((o) => <option key={o} value={o} />)}</datalist>
             <input placeholder="Teléfono" value={editForm.telefono} onChange={(e) => setEditForm((f) => ({ ...f, telefono: e.target.value }))} className="w-full border rounded px-3 py-2" />
             <input type="email" placeholder="Email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} className="w-full border rounded px-3 py-2" />
             {error && <p className="text-sm text-red-600">{error}</p>}
@@ -347,6 +358,7 @@ export default function ClientesPage() {
                   <td className="border border-neutral-300 px-3 py-2">{c.telefono ?? "—"}</td>
                   <td className="border border-neutral-300 px-3 py-2">{c.email ?? "—"}</td>
                   <td className="border border-neutral-300 px-3 py-2">
+                    <Link href={`/pedidos?clienteId=${encodeURIComponent(c.id)}`} className="text-sm underline mr-2">Hacer pedido</Link>
                     <button type="button" onClick={() => setEditingId(c.id)} className="text-sm underline">Editar</button>
                   </td>
                 </tr>

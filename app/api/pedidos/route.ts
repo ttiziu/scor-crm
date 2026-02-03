@@ -18,16 +18,34 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const clienteId = searchParams.get("clienteId");
+  const clienteQuery = searchParams.get("clienteQuery")?.trim(); // nombre o documento (buscar clientes y filtrar pedidos)
   const estadoParam = searchParams.get("estado");
-  const fechaParam = searchParams.get("fecha"); // YYYY-MM-DD: filtrar por fecha programada
+  const fechaParam = searchParams.get("fecha"); // YYYY-MM-DD: opcional; si no se envía, no filtra por fecha
+  const repartidorIdParam = searchParams.get("repartidorId"); // solo para ADMIN/OPERADOR
 
   const where: Prisma.PedidoWhereInput = {
     tenantId: session.tenantId,
   };
   if (session.role === "REPARTIDOR") {
     where.repartidorId = session.userId;
+  } else if (repartidorIdParam) {
+    where.repartidorId = repartidorIdParam;
   }
   if (clienteId) where.clienteId = clienteId;
+  if (clienteQuery) {
+    const clientesMatch = await prisma.cliente.findMany({
+      where: {
+        tenantId: session.tenantId,
+        OR: [
+          { name: { contains: clienteQuery, mode: "insensitive" } },
+          { documento: { contains: clienteQuery, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true },
+    });
+    const ids = clientesMatch.map((c) => c.id);
+    where.clienteId = ids.length === 0 ? { in: [] } : { in: ids };
+  }
   if (isEstadoValido(estadoParam)) where.estado = estadoParam;
   if (fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam)) {
     const start = new Date(fechaParam + "T00:00:00");
