@@ -5,7 +5,7 @@ const COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 7; // 7 días
 export type JWTPayload = {
   userId: string;
   tenantId: string;
-  email: string;
+  username: string;
   role: string;
   exp: number;
 };

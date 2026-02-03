@@ -1,30 +1,31 @@
 import { NextResponse } from "next/server";
+import * as bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/get-session";
-import { createClienteSchema } from "@/lib/validations/clientes";
+import { createUsuarioSchema } from "@/lib/validations/usuarios";
 
 export async function GET(request: Request) {
   const session = await getSession(request);
   if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
+  if (session.role !== "ADMIN") {
+    return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
+  }
 
-  const clientes = await prisma.cliente.findMany({
+  const users = await prisma.user.findMany({
     where: { tenantId: session.tenantId },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
-      name: true,
-      documento: true,
-      direccion: true,
-      distrito: true,
-      tipoValvula: true,
-      telefono: true,
+      username: true,
       email: true,
+      name: true,
+      role: true,
       createdAt: true,
     },
   });
-  return NextResponse.json(clientes);
+  return NextResponse.json(users);
 }
 
 export async function POST(request: Request) {
@@ -32,10 +33,13 @@ export async function POST(request: Request) {
   if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
+  if (session.role !== "ADMIN") {
+    return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
+  }
 
   try {
     const body = await request.json();
-    const parsed = createClienteSchema.safeParse(body);
+    const parsed = createUsuarioSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Datos inválidos", details: parsed.error.flatten().fieldErrors },
@@ -45,30 +49,33 @@ export async function POST(request: Request) {
     const data = parsed.data;
     const email = data.email === "" ? undefined : data.email;
 
-    const cliente = await prisma.cliente.create({
+    const existing = await prisma.user.findUnique({
+      where: { tenantId_username: { tenantId: session.tenantId, username: data.username } },
+    });
+    if (existing) {
+      return NextResponse.json({ error: "Ya existe un usuario con ese nombre de usuario" }, { status: 409 });
+    }
+
+    const passwordHash = await bcrypt.hash(data.password, 10);
+    const user = await prisma.user.create({
       data: {
         tenantId: session.tenantId,
-        name: data.name,
-        documento: data.documento,
-        direccion: data.direccion,
-        distrito: data.distrito,
-        tipoValvula: data.tipoValvula,
-        telefono: data.telefono,
+        username: data.username,
         email,
+        passwordHash,
+        name: data.name,
+        role: data.role,
       },
       select: {
         id: true,
-        name: true,
-        documento: true,
-        direccion: true,
-        distrito: true,
-        tipoValvula: true,
-        telefono: true,
+        username: true,
         email: true,
+        name: true,
+        role: true,
         createdAt: true,
       },
     });
-    return NextResponse.json(cliente, { status: 201 });
+    return NextResponse.json(user, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }

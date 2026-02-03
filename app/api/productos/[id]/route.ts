@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/get-session";
-import { updateClienteSchema } from "@/lib/validations/clientes";
+import { updateProductoSchema } from "@/lib/validations/productos";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -12,25 +12,19 @@ export async function GET(request: Request, { params }: RouteParams) {
   }
 
   const { id } = await params;
-  const cliente = await prisma.cliente.findFirst({
+  const producto = await prisma.producto.findFirst({
     where: { id, tenantId: session.tenantId },
     select: {
       id: true,
       name: true,
-      documento: true,
-      direccion: true,
-      distrito: true,
-      tipoValvula: true,
-      telefono: true,
-      email: true,
       createdAt: true,
       updatedAt: true,
     },
   });
-  if (!cliente) {
-    return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
+  if (!producto) {
+    return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 });
   }
-  return NextResponse.json(cliente);
+  return NextResponse.json(producto);
 }
 
 export async function PATCH(request: Request, { params }: RouteParams) {
@@ -40,49 +34,36 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 
   const { id } = await params;
-  const existing = await prisma.cliente.findFirst({
+  const existing = await prisma.producto.findFirst({
     where: { id, tenantId: session.tenantId },
   });
   if (!existing) {
-    return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
+    return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 });
   }
 
   try {
     const body = await request.json();
-    const parsed = updateClienteSchema.safeParse(body);
+    const parsed = updateProductoSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Datos inválidos", details: parsed.error.flatten().fieldErrors },
         { status: 400 }
       );
     }
-    const data = parsed.data;
 
-    const cliente = await prisma.cliente.update({
+    const producto = await prisma.producto.update({
       where: { id },
       data: {
-        ...(data.name !== undefined && { name: data.name }),
-        ...(data.documento !== undefined && { documento: data.documento }),
-        ...(data.direccion !== undefined && { direccion: data.direccion }),
-        ...(data.distrito !== undefined && { distrito: data.distrito }),
-        ...(data.tipoValvula !== undefined && { tipoValvula: data.tipoValvula }),
-        ...(data.telefono !== undefined && { telefono: data.telefono }),
-        ...(data.email !== undefined && { email: data.email === "" ? null : data.email }),
+        ...(parsed.data.name !== undefined && { name: parsed.data.name.trim() }),
       },
       select: {
         id: true,
         name: true,
-        documento: true,
-        direccion: true,
-        distrito: true,
-        tipoValvula: true,
-        telefono: true,
-        email: true,
         createdAt: true,
         updatedAt: true,
       },
     });
-    return NextResponse.json(cliente);
+    return NextResponse.json(producto);
   } catch {
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
@@ -95,13 +76,13 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   }
 
   const { id } = await params;
-  const existing = await prisma.cliente.findFirst({
+  const existing = await prisma.producto.findFirst({
     where: { id, tenantId: session.tenantId },
   });
   if (!existing) {
-    return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
+    return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 });
   }
 
-  await prisma.cliente.delete({ where: { id } });
+  await prisma.producto.delete({ where: { id } });
   return new NextResponse(null, { status: 204 });
 }

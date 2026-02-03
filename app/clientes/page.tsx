@@ -9,6 +9,8 @@ type Cliente = {
   name: string;
   documento: string | null;
   direccion: string | null;
+  distrito: string | null;
+  tipoValvula: string | null;
   telefono: string | null;
   email: string | null;
   createdAt: string;
@@ -22,7 +24,7 @@ export default function ClientesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ name: "", documento: "", direccion: "", telefono: "", email: "" });
+  const [form, setForm] = useState({ name: "", documento: "", direccion: "", distrito: "", tipoValvula: "", telefono: "", email: "" });
 
   function loadClientes() {
     fetch("/api/clientes", { credentials: "include" })
@@ -61,6 +63,8 @@ export default function ClientesPage() {
           name: form.name,
           documento: form.documento || undefined,
           direccion: form.direccion || undefined,
+          distrito: form.distrito || undefined,
+          tipoValvula: form.tipoValvula || undefined,
           telefono: form.telefono || undefined,
           email: form.email || undefined,
         }),
@@ -70,7 +74,7 @@ export default function ClientesPage() {
         setError(data.error ?? "Error al crear");
         return;
       }
-      setForm({ name: "", documento: "", direccion: "", telefono: "", email: "" });
+      setForm({ name: "", documento: "", direccion: "", distrito: "", tipoValvula: "", telefono: "", email: "" });
       setFormOpen(false);
       loadClientes();
     } catch {
@@ -130,6 +134,18 @@ export default function ClientesPage() {
               className="w-full border rounded px-3 py-2"
             />
             <input
+              placeholder="Distrito"
+              value={form.distrito}
+              onChange={(e) => setForm((f) => ({ ...f, distrito: e.target.value }))}
+              className="w-full border rounded px-3 py-2"
+            />
+            <input
+              placeholder="Tipo de válvula"
+              value={form.tipoValvula}
+              onChange={(e) => setForm((f) => ({ ...f, tipoValvula: e.target.value }))}
+              className="w-full border rounded px-3 py-2"
+            />
+            <input
               placeholder="Teléfono"
               value={form.telefono}
               onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
@@ -157,6 +173,8 @@ export default function ClientesPage() {
               <th className="border border-neutral-300 px-3 py-2 text-left">Nombre</th>
               <th className="border border-neutral-300 px-3 py-2 text-left">Documento</th>
               <th className="border border-neutral-300 px-3 py-2 text-left">Dirección</th>
+              <th className="border border-neutral-300 px-3 py-2 text-left">Distrito</th>
+              <th className="border border-neutral-300 px-3 py-2 text-left">Tipo válvula</th>
               <th className="border border-neutral-300 px-3 py-2 text-left">Teléfono</th>
               <th className="border border-neutral-300 px-3 py-2 text-left">Email</th>
             </tr>
@@ -164,7 +182,7 @@ export default function ClientesPage() {
           <tbody>
             {clientes.length === 0 ? (
               <tr>
-                <td colSpan={5} className="border border-neutral-300 px-3 py-4 text-center text-neutral-500">
+                <td colSpan={7} className="border border-neutral-300 px-3 py-4 text-center text-neutral-500">
                   No hay clientes
                 </td>
               </tr>
@@ -174,6 +192,8 @@ export default function ClientesPage() {
                   <td className="border border-neutral-300 px-3 py-2">{c.name}</td>
                   <td className="border border-neutral-300 px-3 py-2">{c.documento ?? "—"}</td>
                   <td className="border border-neutral-300 px-3 py-2">{c.direccion ?? "—"}</td>
+                  <td className="border border-neutral-300 px-3 py-2">{c.distrito ?? "—"}</td>
+                  <td className="border border-neutral-300 px-3 py-2">{c.tipoValvula ?? "—"}</td>
                   <td className="border border-neutral-300 px-3 py-2">{c.telefono ?? "—"}</td>
                   <td className="border border-neutral-300 px-3 py-2">{c.email ?? "—"}</td>
                 </tr>

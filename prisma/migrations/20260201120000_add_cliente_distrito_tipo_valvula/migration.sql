@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Cliente" ADD COLUMN IF NOT EXISTS "distrito" TEXT;
+ALTER TABLE "Cliente" ADD COLUMN IF NOT EXISTS "tipoValvula" TEXT;

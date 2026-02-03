@@ -11,41 +11,36 @@ function isEstadoValido(estado: string | null): estado is (typeof ESTADOS_VALIDO
 }
 
 export async function GET(request: Request) {
-  try {
-    const session = await getSession(request);
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const clienteId = searchParams.get("clienteId");
-    const estadoParam = searchParams.get("estado");
-
-    const where: Prisma.PedidoWhereInput = {
-      tenantId: session.tenantId,
-    };
-    if (clienteId) where.clienteId = clienteId;
-    if (isEstadoValido(estadoParam)) where.estado = estadoParam;
-
-    const pedidos = await prisma.pedido.findMany({
-      where,
-      orderBy: { fechaPedido: "desc" },
-      select: {
-        id: true,
-        clienteId: true,
-        estado: true,
-        cantidad: true,
-        fechaPedido: true,
-        observaciones: true,
-        createdAt: true,
-        cliente: { select: { id: true, name: true } },
-      },
-    });
-    return NextResponse.json(pedidos);
-  } catch (err) {
-    console.error("GET /api/pedidos error:", err);
-    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+  const session = await getSession(request);
+  if (!session) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
+
+  const { searchParams } = new URL(request.url);
+  const clienteId = searchParams.get("clienteId");
+  const estadoParam = searchParams.get("estado");
+
+  const where: Prisma.PedidoWhereInput = {
+    tenantId: session.tenantId,
+  };
+  if (clienteId) where.clienteId = clienteId;
+  if (isEstadoValido(estadoParam)) where.estado = estadoParam;
+
+  const pedidos = await prisma.pedido.findMany({
+    where,
+    orderBy: { fechaPedido: "desc" },
+    select: {
+      id: true,
+      clienteId: true,
+      estado: true,
+      cantidad: true,
+      fechaPedido: true,
+      observaciones: true,
+      createdAt: true,
+      cliente: { select: { id: true, name: true } },
+    },
+  });
+  return NextResponse.json(pedidos);
 }
 
 export async function POST(request: Request) {
@@ -98,8 +93,7 @@ export async function POST(request: Request) {
       },
     });
     return NextResponse.json(pedido, { status: 201 });
-  } catch (err) {
-    console.error("POST /api/pedidos error:", err);
+  } catch {
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }

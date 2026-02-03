@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-type User = { id: string; email: string; role: string };
+type User = { id: string; username: string; role: string };
 
 export default function HomePage() {
   const router = useRouter();
@@ -51,7 +51,7 @@ export default function HomePage() {
       <header className="flex justify-between items-center mb-8">
         <h1 className="text-xl font-semibold">SCOR CRM</h1>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-neutral-600">{user.email}</span>
+          <span className="text-sm text-neutral-600">{user.username}</span>
           <button
             type="button"
             onClick={handleLogout}
@@ -62,13 +62,27 @@ export default function HomePage() {
         </div>
       </header>
       <main>
-        <p className="mb-6">Bienvenido, {user.email}</p>
+        <p className="mb-6">Bienvenido, {user.username}</p>
         <nav className="flex gap-4">
+          {user.role === "ADMIN" && (
+            <Link
+              href="/usuarios"
+              className="py-2 px-4 rounded bg-foreground text-background"
+            >
+              Usuarios
+            </Link>
+          )}
           <Link
             href="/clientes"
             className="py-2 px-4 rounded bg-foreground text-background"
           >
             Clientes
+          </Link>
+          <Link
+            href="/productos"
+            className="py-2 px-4 rounded border border-foreground"
+          >
+            Productos
           </Link>
           <Link
             href="/pedidos"

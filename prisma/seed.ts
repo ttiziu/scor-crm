@@ -15,15 +15,16 @@ async function main() {
     },
   });
 
-  // Usuario ADMIN (para login de prueba)
+  // Usuario ADMIN (login: usuario "admin", contraseña admin123)
   const adminHash = await bcrypt.hash("admin123", 10);
   await prisma.user.upsert({
     where: {
-      tenantId_email: { tenantId: tenant.id, email: "admin@demo.com" },
+      tenantId_username: { tenantId: tenant.id, username: "admin" },
     },
-    update: {},
+    update: { passwordHash: adminHash, name: "Administrador Demo", role: Role.ADMIN },
     create: {
       tenantId: tenant.id,
+      username: "admin",
       email: "admin@demo.com",
       passwordHash: adminHash,
       name: "Administrador Demo",
@@ -31,15 +32,16 @@ async function main() {
     },
   });
 
-  // Usuario OPERADOR (opcional, para probar permisos)
+  // Usuario OPERADOR (login: usuario "operador", contraseña operador123)
   const operadorHash = await bcrypt.hash("operador123", 10);
   await prisma.user.upsert({
     where: {
-      tenantId_email: { tenantId: tenant.id, email: "operador@demo.com" },
+      tenantId_username: { tenantId: tenant.id, username: "operador" },
     },
-    update: {},
+    update: { passwordHash: operadorHash, name: "Operador Demo", role: Role.OPERADOR },
     create: {
       tenantId: tenant.id,
+      username: "operador",
       email: "operador@demo.com",
       passwordHash: operadorHash,
       name: "Operador Demo",
@@ -50,13 +52,15 @@ async function main() {
   // Clientes de ejemplo
   const cliente1 = await prisma.cliente.upsert({
     where: { id: "seed-cliente-1" },
-    update: {},
+    update: { distrito: "San Isidro", tipoValvula: "Estándar" },
     create: {
       id: "seed-cliente-1",
       tenantId: tenant.id,
       name: "Juan Pérez",
       documento: "12345678",
       direccion: "Av. Principal 100",
+      distrito: "San Isidro",
+      tipoValvula: "Estándar",
       telefono: "999888777",
       email: "juan@example.com",
     },
@@ -64,16 +68,42 @@ async function main() {
 
   const cliente2 = await prisma.cliente.upsert({
     where: { id: "seed-cliente-2" },
-    update: {},
+    update: { distrito: "Miraflores", tipoValvula: "Premium" },
     create: {
       id: "seed-cliente-2",
       tenantId: tenant.id,
       name: "María García",
       documento: "87654321",
       direccion: "Calle Secundaria 200",
+      distrito: "Miraflores",
+      tipoValvula: "Premium",
       telefono: "999777666",
     },
   });
+
+  // Productos del catálogo (gas, regulador, kit, kit completo)
+  const productoNames = [
+    "Gas 5 kg",
+    "Gas 10 kg normal",
+    "Gas 10 kg premium",
+    "Gas 45 kg",
+    "Regulador normal",
+    "Regulador premium",
+    "Kit válvula",
+    "Kit completo 10 kg",
+    "Kit completo 45 kg",
+  ];
+  for (let i = 0; i < productoNames.length; i++) {
+    await prisma.producto.upsert({
+      where: { id: `seed-producto-${i + 1}` },
+      update: { name: productoNames[i] },
+      create: {
+        id: `seed-producto-${i + 1}`,
+        tenantId: tenant.id,
+        name: productoNames[i],
+      },
+    });
+  }
 
   // Pedidos de ejemplo
   await prisma.pedido.upsert({
@@ -103,9 +133,9 @@ async function main() {
 
   console.log("Seed completado.");
   console.log("Tenant:", tenant.slug);
-  console.log("Login de prueba:");
-  console.log("  ADMIN:    admin@demo.com / admin123");
-  console.log("  OPERADOR: operador@demo.com / operador123");
+  console.log("Login de prueba (usuario / contraseña):");
+  console.log("  ADMIN:    admin / admin123");
+  console.log("  OPERADOR: operador / operador123");
 }
 
 main()

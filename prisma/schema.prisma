@@ -30,39 +30,54 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users    User[]
-  clientes Cliente[]
-  pedidos  Pedido[]
+  users     User[]
+  clientes  Cliente[]
+  pedidos   Pedido[]
+  productos Producto[]
 }
 
 model User {
   id           String   @id @default(cuid())
   tenantId     String
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  email        String
+  username     String?
+  email        String?
   passwordHash String
   name         String
   role         Role
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  @@unique([tenantId, email])
+  @@unique([tenantId, username])
   @@index([tenantId])
 }
 
 model Cliente {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  documento   String?
+  direccion   String?
+  distrito    String?
+  tipoValvula String?
+  telefono    String?
+  email       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pedidos Pedido[]
+
+  @@index([tenantId])
+}
+
+model Producto {
   id        String   @id @default(cuid())
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name      String
-  documento String?
-  direccion String?
-  telefono  String?
-  email     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  pedidos Pedido[]
 
   @@index([tenantId])
 }
