@@ -328,6 +328,9 @@ export default function ClientesPage() {
         </div>
       )}
 
+      {clientes.length === 100 && (
+        <p className="text-sm text-neutral-600 mb-2">Mostrando últimos 100 clientes.</p>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse border border-neutral-300">
           <thead>
