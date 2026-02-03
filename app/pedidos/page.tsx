@@ -70,7 +70,10 @@ export default function PedidosPage() {
   const [fechaFiltro, setFechaFiltro] = useState(() => todayISO());
   const [repartidorFiltro, setRepartidorFiltro] = useState("");
   const [clienteBusqueda, setClienteBusqueda] = useState("");
+  const [estadoFiltro, setEstadoFiltro] = useState("");
   const [cancelando, setCancelando] = useState<{ id: string; motivo: string } | null>(null);
+  const [updatingEstadoId, setUpdatingEstadoId] = useState<string | null>(null);
+  const [exportando, setExportando] = useState(false);
   const [formasPago, setFormasPago] = useState<{ value: string; label: string }[]>([]);
   const clienteInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,6 +81,7 @@ export default function PedidosPage() {
     const params = new URLSearchParams();
     if (fechaFiltro) params.set("fecha", fechaFiltro);
     if (repartidorFiltro) params.set("repartidorId", repartidorFiltro);
+    if (estadoFiltro) params.set("estado", estadoFiltro);
     if (clienteBusqueda.trim()) params.set("clienteQuery", clienteBusqueda.trim());
     const url = `/api/pedidos?${params.toString()}`;
     fetch(url, { credentials: "include" })
@@ -179,7 +183,7 @@ export default function PedidosPage() {
 
   useEffect(() => {
     if (authOk) loadPedidos();
-  }, [fechaFiltro, repartidorFiltro, clienteBusqueda]);
+  }, [fechaFiltro, repartidorFiltro, estadoFiltro, clienteBusqueda]);
 
   async function cancelarPedido() {
     if (!cancelando) return;
@@ -202,6 +206,47 @@ export default function PedidosPage() {
       setError("Error de conexión");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function cambiarEstado(pedidoId: string, estado: string) {
+    setUpdatingEstadoId(pedidoId);
+    try {
+      const res = await fetch(`/api/pedidos/${pedidoId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ estado }),
+      });
+      if (res.ok) {
+        setPedidos((prev) =>
+          prev.map((p) => (p.id === pedidoId ? { ...p, estado } : p))
+        );
+      }
+    } finally {
+      setUpdatingEstadoId(null);
+    }
+  }
+
+  async function exportarPedidos() {
+    const params = new URLSearchParams();
+    if (fechaFiltro) params.set("fecha", fechaFiltro);
+    if (repartidorFiltro) params.set("repartidorId", repartidorFiltro);
+    if (estadoFiltro) params.set("estado", estadoFiltro);
+    if (clienteBusqueda.trim()) params.set("clienteQuery", clienteBusqueda.trim());
+    setExportando(true);
+    try {
+      const res = await fetch(`/api/pedidos/export?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `pedidos_${fechaFiltro || "todos"}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportando(false);
     }
   }
 
@@ -547,53 +592,75 @@ export default function PedidosPage() {
         )}
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <label className="text-sm font-medium">Ver pedidos del:</label>
-        <input
-          type="date"
-          value={fechaFiltro}
-          onChange={(e) => setFechaFiltro(e.target.value)}
-          className="border rounded px-3 py-2 [color-scheme:light]"
-          title="Dejar vacío para ver todos los pedidos (útil al buscar por cliente)"
-        />
-        <button
-          type="button"
-          onClick={() => setFechaFiltro(todayISO())}
-          className="py-2 px-3 rounded border text-sm hover:bg-neutral-100"
-        >
-          Hoy
-        </button>
-        <button
-          type="button"
-          onClick={() => setFechaFiltro("")}
-          className="py-2 px-3 rounded border text-sm hover:bg-neutral-100"
-          title="Ver todos los pedidos sin filtrar por fecha"
-        >
-          Todas las fechas
-        </button>
-        {userRole !== "REPARTIDOR" && usuarios.length > 0 && (
-          <>
-            <label className="text-sm font-medium ml-2">Repartidor:</label>
-            <select
-              value={repartidorFiltro}
-              onChange={(e) => setRepartidorFiltro(e.target.value)}
-              className="border rounded px-3 py-2 text-sm"
-            >
+      <div className="mb-4 p-3 border border-neutral-200 rounded-lg bg-neutral-50/50">
+        <p className="text-sm font-medium text-neutral-700 mb-2">Filtros</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1">
+            <label className="text-sm">Fecha:</label>
+            <input
+              type="date"
+              value={fechaFiltro}
+              onChange={(e) => setFechaFiltro(e.target.value)}
+              className="border rounded px-2 py-1.5 text-sm [color-scheme:light]"
+              title="Vacío = todas las fechas"
+            />
+            <button type="button" onClick={() => setFechaFiltro(todayISO())} className="py-1.5 px-2 rounded border text-sm hover:bg-neutral-100">Hoy</button>
+            <button type="button" onClick={() => setFechaFiltro("")} className="py-1.5 px-2 rounded border text-sm hover:bg-neutral-100">Todas</button>
+          </div>
+          {userRole !== "REPARTIDOR" && usuarios.length > 0 && (
+            <div className="flex items-center gap-1">
+              <label className="text-sm">Repartidor:</label>
+              <select value={repartidorFiltro} onChange={(e) => setRepartidorFiltro(e.target.value)} className="border rounded px-2 py-1.5 text-sm min-w-[120px]">
+                <option value="">Todos</option>
+                {usuarios.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="flex items-center gap-1">
+            <label className="text-sm">Estado:</label>
+            <select value={estadoFiltro} onChange={(e) => setEstadoFiltro(e.target.value)} className="border rounded px-2 py-1.5 text-sm min-w-[110px]">
               <option value="">Todos</option>
-              {usuarios.map((u) => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))}
+              <option value="CREATED">Creado</option>
+              <option value="IN_ROUTE">En ruta</option>
+              <option value="DELIVERED">Entregado</option>
+              <option value="CANCELLED">Cancelado</option>
             </select>
-          </>
-        )}
-        <label className="text-sm font-medium ml-2">Cliente (nombre o doc.):</label>
-        <input
-          type="text"
-          value={clienteBusqueda}
-          onChange={(e) => setClienteBusqueda(e.target.value)}
-          placeholder="Buscar por nombre o documento..."
-          className="border rounded px-3 py-2 text-sm w-48"
-        />
+          </div>
+          <div className="flex items-center gap-1">
+            <label className="text-sm">Cliente:</label>
+            <input
+              type="text"
+              value={clienteBusqueda}
+              onChange={(e) => setClienteBusqueda(e.target.value)}
+              placeholder="Nombre o documento"
+              className="border rounded px-2 py-1.5 text-sm w-40"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setFechaFiltro(todayISO());
+              setRepartidorFiltro("");
+              setEstadoFiltro("");
+              setClienteBusqueda("");
+            }}
+            className="py-1.5 px-3 rounded border text-sm hover:bg-neutral-100"
+          >
+            Limpiar filtros
+          </button>
+          {userRole !== "REPARTIDOR" && (
+            <button
+              type="button"
+              onClick={exportarPedidos}
+              disabled={exportando}
+              className="py-1.5 px-3 rounded bg-green-700 text-white text-sm hover:bg-green-800 disabled:opacity-50"
+            >
+              {exportando ? "Exportando…" : "Exportar Excel"}
+            </button>
+          )}
+        </div>
       </div>
 
       {cancelando && (
@@ -629,14 +696,14 @@ export default function PedidosPage() {
               <th className="border border-neutral-300 px-3 py-2 text-left">Repartidor</th>
               <th className="border border-neutral-300 px-3 py-2 text-left">Pago</th>
               <th className="border border-neutral-300 px-3 py-2 text-left">Observaciones</th>
-              <th className="border border-neutral-300 px-3 py-2 text-left w-28">Acciones</th>
+              <th className="border border-neutral-300 px-3 py-2 text-left min-w-[180px]">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {pedidos.length === 0 ? (
               <tr>
                 <td colSpan={9} className="border border-neutral-300 px-3 py-4 text-center text-neutral-500">
-                  {fechaFiltro || repartidorFiltro || clienteBusqueda.trim() ? "No hay pedidos con estos filtros" : "No hay pedidos"}
+                  {fechaFiltro || repartidorFiltro || estadoFiltro || clienteBusqueda.trim() ? "No hay pedidos con estos filtros" : "No hay pedidos"}
                 </td>
               </tr>
             ) : (
@@ -659,6 +726,12 @@ export default function PedidosPage() {
                   <td className="border border-neutral-300 px-3 py-2">{p.observaciones ?? "—"}</td>
                   <td className="border border-neutral-300 px-3 py-2">
                     <Link href={`/pedidos/${p.id}`} className="text-sm underline mr-2">Ver / Editar</Link>
+                    {p.estado === "CREATED" && (
+                      <button type="button" onClick={() => cambiarEstado(p.id, "IN_ROUTE")} disabled={updatingEstadoId === p.id} className="text-sm text-amber-700 underline mr-1">En ruta</button>
+                    )}
+                    {(p.estado === "CREATED" || p.estado === "IN_ROUTE") && (
+                      <button type="button" onClick={() => cambiarEstado(p.id, "DELIVERED")} disabled={updatingEstadoId === p.id} className="text-sm text-green-700 underline mr-1">Entregado</button>
+                    )}
                     {(p.estado === "CREATED" || p.estado === "IN_ROUTE") && (
                       <button type="button" onClick={() => { setCancelando({ id: p.id, motivo: "" }); setError(""); }} className="text-sm text-red-600 underline">Cancelar</button>
                     )}

@@ -54,9 +54,11 @@ export async function GET(request: Request) {
     where.fechaProgramada = { gte: start, lt: end };
   }
 
+  const PAGE_SIZE = 100;
   const pedidos = await prisma.pedido.findMany({
     where,
     orderBy: { fechaPedido: "desc" },
+    take: PAGE_SIZE,
     select: {
       id: true,
       clienteId: true,
