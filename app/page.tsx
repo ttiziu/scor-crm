@@ -72,24 +72,36 @@ export default function HomePage() {
               Usuarios
             </Link>
           )}
-          <Link
-            href="/clientes"
-            className="py-2 px-4 rounded bg-foreground text-background"
-          >
-            Clientes
-          </Link>
-          <Link
-            href="/productos"
-            className="py-2 px-4 rounded border border-foreground"
-          >
-            Productos
-          </Link>
-          <Link
-            href="/pedidos"
-            className="py-2 px-4 rounded border border-foreground"
-          >
-            Pedidos
-          </Link>
+          {user.role !== "REPARTIDOR" && (
+            <>
+              <Link
+                href="/clientes"
+                className="py-2 px-4 rounded bg-foreground text-background"
+              >
+                Clientes
+              </Link>
+              <Link
+                href="/productos"
+                className="py-2 px-4 rounded border border-foreground"
+              >
+                Productos
+              </Link>
+              <Link
+                href="/pedidos"
+                className="py-2 px-4 rounded border border-foreground"
+              >
+                Pedidos
+              </Link>
+            </>
+          )}
+          {user.role === "REPARTIDOR" && (
+            <Link
+              href="/mis-pedidos"
+              className="py-2 px-4 rounded bg-foreground text-background"
+            >
+              Mis pedidos
+            </Link>
+          )}
         </nav>
       </main>
     </div>

@@ -212,6 +212,7 @@ export default function UsuariosPage() {
                 className="w-full border rounded px-3 py-2"
               >
                 <option value="OPERADOR">Operador</option>
+                <option value="REPARTIDOR">Repartidor</option>
                 <option value="ADMIN">Administrador</option>
               </select>
             </div>
@@ -267,6 +268,7 @@ export default function UsuariosPage() {
                           className="border rounded px-2 py-1"
                         >
                           <option value="OPERADOR">Operador</option>
+                          <option value="REPARTIDOR">Repartidor</option>
                           <option value="ADMIN">Administrador</option>
                         </select>
                       </td>

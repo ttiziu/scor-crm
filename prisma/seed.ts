@@ -49,6 +49,23 @@ async function main() {
     },
   });
 
+  // Usuario REPARTIDOR (login: usuario "repartidor", contraseña repartidor123)
+  const repartidorHash = await bcrypt.hash("repartidor123", 10);
+  await prisma.user.upsert({
+    where: {
+      tenantId_username: { tenantId: tenant.id, username: "repartidor" },
+    },
+    update: { passwordHash: repartidorHash, name: "Repartidor Demo", role: Role.REPARTIDOR },
+    create: {
+      tenantId: tenant.id,
+      username: "repartidor",
+      email: "repartidor@demo.com",
+      passwordHash: repartidorHash,
+      name: "Repartidor Demo",
+      role: Role.REPARTIDOR,
+    },
+  });
+
   // Clientes de ejemplo
   const cliente1 = await prisma.cliente.upsert({
     where: { id: "seed-cliente-1" },
@@ -134,8 +151,9 @@ async function main() {
   console.log("Seed completado.");
   console.log("Tenant:", tenant.slug);
   console.log("Login de prueba (usuario / contraseña):");
-  console.log("  ADMIN:    admin / admin123");
-  console.log("  OPERADOR: operador / operador123");
+  console.log("  ADMIN:       admin / admin123");
+  console.log("  OPERADOR:    operador / operador123");
+  console.log("  REPARTIDOR:  repartidor / repartidor123");
 }
 
 main()

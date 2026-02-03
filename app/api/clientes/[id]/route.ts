@@ -10,6 +10,9 @@ export async function GET(request: Request, { params }: RouteParams) {
   if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
+  if (session.role === "REPARTIDOR") {
+    return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
+  }
 
   const { id } = await params;
   const cliente = await prisma.cliente.findFirst({
@@ -25,6 +28,15 @@ export async function GET(request: Request, { params }: RouteParams) {
       email: true,
       createdAt: true,
       updatedAt: true,
+      direcciones: {
+        select: {
+          id: true,
+          nombre: true,
+          direccion: true,
+          distrito: true,
+          tipoValvula: true,
+        },
+      },
     },
   });
   if (!cliente) {
@@ -37,6 +49,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   const session = await getSession(request);
   if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  if (session.role === "REPARTIDOR") {
+    return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
   const { id } = await params;
@@ -92,6 +107,9 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   const session = await getSession(request);
   if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  if (session.role === "REPARTIDOR") {
+    return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
   const { id } = await params;

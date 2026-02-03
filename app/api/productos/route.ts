@@ -8,6 +8,9 @@ export async function GET(request: Request) {
   if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
+  if (session.role === "REPARTIDOR") {
+    return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
+  }
 
   const productos = await prisma.producto.findMany({
     where: { tenantId: session.tenantId },
@@ -25,6 +28,9 @@ export async function POST(request: Request) {
   const session = await getSession(request);
   if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  if (session.role === "REPARTIDOR") {
+    return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
   try {

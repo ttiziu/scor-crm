@@ -34,12 +34,18 @@ export default function ProductosPage() {
       .then((res) => {
         if (res.status === 401) {
           router.replace("/login");
-          return;
+          return null;
         }
-        setAuthOk(true);
         return res.json();
       })
-      .then(() => loadProductos())
+      .then((data) => {
+        if (data?.user?.role === "REPARTIDOR") {
+          router.replace("/");
+          return;
+        }
+        if (data?.user) setAuthOk(true);
+        loadProductos();
+      })
       .catch(() => router.replace("/login"))
       .finally(() => setLoading(false));
   }, [router]);
