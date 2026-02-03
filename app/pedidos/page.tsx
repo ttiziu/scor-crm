@@ -67,7 +67,8 @@ export default function PedidosPage() {
   const [clienteSearch, setClienteSearch] = useState("");
   const [clienteDropdownOpen, setClienteDropdownOpen] = useState(false);
   const [clienteDetalle, setClienteDetalle] = useState<ClienteDetalle | null>(null);
-  const [fechaFiltro, setFechaFiltro] = useState(() => todayISO());
+  const [fechaDesde, setFechaDesde] = useState(() => todayISO());
+  const [fechaHasta, setFechaHasta] = useState(() => todayISO());
   const [repartidorFiltro, setRepartidorFiltro] = useState("");
   const [clienteBusqueda, setClienteBusqueda] = useState("");
   const [estadoFiltro, setEstadoFiltro] = useState("");
@@ -79,7 +80,10 @@ export default function PedidosPage() {
 
   function loadPedidos() {
     const params = new URLSearchParams();
-    if (fechaFiltro) params.set("fecha", fechaFiltro);
+    if (fechaDesde && fechaHasta) {
+      params.set("fechaDesde", fechaDesde);
+      params.set("fechaHasta", fechaHasta);
+    }
     if (repartidorFiltro) params.set("repartidorId", repartidorFiltro);
     if (estadoFiltro) params.set("estado", estadoFiltro);
     if (clienteBusqueda.trim()) params.set("clienteQuery", clienteBusqueda.trim());
@@ -183,7 +187,22 @@ export default function PedidosPage() {
 
   useEffect(() => {
     if (authOk) loadPedidos();
-  }, [fechaFiltro, repartidorFiltro, estadoFiltro, clienteBusqueda]);
+  }, [fechaDesde, fechaHasta, repartidorFiltro, estadoFiltro, clienteBusqueda]);
+
+  // Actualizar lista al volver a la pestaña (p. ej. cuando el repartidor marca En ruta/Entregado)
+  useEffect(() => {
+    if (!authOk) return;
+    const onFocus = () => loadPedidos();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [authOk, fechaDesde, fechaHasta, repartidorFiltro, estadoFiltro, clienteBusqueda]);
+
+  // Polling cada 15 s para ver enseguida cuando el repartidor marca En ruta/Entregado
+  useEffect(() => {
+    if (!authOk) return;
+    const id = setInterval(loadPedidos, 15_000);
+    return () => clearInterval(id);
+  }, [authOk, fechaDesde, fechaHasta, repartidorFiltro, estadoFiltro, clienteBusqueda]);
 
   async function cancelarPedido() {
     if (!cancelando) return;
@@ -230,7 +249,10 @@ export default function PedidosPage() {
 
   async function exportarPedidos() {
     const params = new URLSearchParams();
-    if (fechaFiltro) params.set("fecha", fechaFiltro);
+    if (fechaDesde && fechaHasta) {
+      params.set("fechaDesde", fechaDesde);
+      params.set("fechaHasta", fechaHasta);
+    }
     if (repartidorFiltro) params.set("repartidorId", repartidorFiltro);
     if (estadoFiltro) params.set("estado", estadoFiltro);
     if (clienteBusqueda.trim()) params.set("clienteQuery", clienteBusqueda.trim());
@@ -242,7 +264,7 @@ export default function PedidosPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `pedidos_${fechaFiltro || "todos"}.xlsx`;
+      a.download = fechaDesde && fechaHasta ? `pedidos_${fechaDesde}_${fechaHasta}.xlsx` : "pedidos_todos.xlsx";
       a.click();
       URL.revokeObjectURL(url);
     } finally {
@@ -595,17 +617,25 @@ export default function PedidosPage() {
       <div className="mb-4 p-3 border border-neutral-200 rounded-lg bg-neutral-50/50">
         <p className="text-sm font-medium text-neutral-700 mb-2">Filtros</p>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1">
-            <label className="text-sm">Fecha:</label>
+          <div className="flex items-center gap-1 flex-wrap">
+            <label className="text-sm">Desde:</label>
             <input
               type="date"
-              value={fechaFiltro}
-              onChange={(e) => setFechaFiltro(e.target.value)}
+              value={fechaDesde}
+              onChange={(e) => setFechaDesde(e.target.value)}
               className="border rounded px-2 py-1.5 text-sm [color-scheme:light]"
-              title="Vacío = todas las fechas"
+              title="Inicio del rango"
             />
-            <button type="button" onClick={() => setFechaFiltro(todayISO())} className="py-1.5 px-2 rounded border text-sm hover:bg-neutral-100">Hoy</button>
-            <button type="button" onClick={() => setFechaFiltro("")} className="py-1.5 px-2 rounded border text-sm hover:bg-neutral-100">Todas</button>
+            <label className="text-sm">Hasta:</label>
+            <input
+              type="date"
+              value={fechaHasta}
+              onChange={(e) => setFechaHasta(e.target.value)}
+              className="border rounded px-2 py-1.5 text-sm [color-scheme:light]"
+              title="Fin del rango"
+            />
+            <button type="button" onClick={() => { setFechaDesde(todayISO()); setFechaHasta(todayISO()); }} className="py-1.5 px-2 rounded border text-sm hover:bg-neutral-100">Hoy</button>
+            <button type="button" onClick={() => { setFechaDesde(""); setFechaHasta(""); }} className="py-1.5 px-2 rounded border text-sm hover:bg-neutral-100">Todas</button>
           </div>
           {userRole !== "REPARTIDOR" && usuarios.length > 0 && (
             <div className="flex items-center gap-1">
@@ -640,8 +670,17 @@ export default function PedidosPage() {
           </div>
           <button
             type="button"
+            onClick={loadPedidos}
+            className="py-1.5 px-3 rounded border text-sm hover:bg-neutral-100"
+            title="Actualizar lista (p. ej. si el repartidor marcó En ruta o Entregado)"
+          >
+            Actualizar
+          </button>
+          <button
+            type="button"
             onClick={() => {
-              setFechaFiltro(todayISO());
+              setFechaDesde(todayISO());
+              setFechaHasta(todayISO());
               setRepartidorFiltro("");
               setEstadoFiltro("");
               setClienteBusqueda("");
@@ -703,7 +742,7 @@ export default function PedidosPage() {
             {pedidos.length === 0 ? (
               <tr>
                 <td colSpan={9} className="border border-neutral-300 px-3 py-4 text-center text-neutral-500">
-                  {fechaFiltro || repartidorFiltro || estadoFiltro || clienteBusqueda.trim() ? "No hay pedidos con estos filtros" : "No hay pedidos"}
+                  {(fechaDesde && fechaHasta) || repartidorFiltro || estadoFiltro || clienteBusqueda.trim() ? "No hay pedidos con estos filtros" : "No hay pedidos"}
                 </td>
               </tr>
             ) : (

@@ -45,6 +45,8 @@ export async function GET(request: Request) {
   const clienteQuery = searchParams.get("clienteQuery")?.trim();
   const estadoParam = searchParams.get("estado");
   const fechaParam = searchParams.get("fecha");
+  const fechaDesdeParam = searchParams.get("fechaDesde");
+  const fechaHastaParam = searchParams.get("fechaHasta");
   const repartidorIdParam = searchParams.get("repartidorId");
 
   const where: Prisma.PedidoWhereInput = {
@@ -71,7 +73,13 @@ export async function GET(request: Request) {
     where.clienteId = ids.length === 0 ? { in: [] } : { in: ids };
   }
   if (isEstadoValido(estadoParam)) where.estado = estadoParam;
-  if (fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam)) {
+  const dateOnlyRe = /^\d{4}-\d{2}-\d{2}$/;
+  if (fechaDesdeParam && dateOnlyRe.test(fechaDesdeParam) && fechaHastaParam && dateOnlyRe.test(fechaHastaParam)) {
+    const start = new Date(fechaDesdeParam + "T00:00:00");
+    const end = new Date(fechaHastaParam + "T00:00:00");
+    end.setDate(end.getDate() + 1);
+    where.fechaProgramada = { gte: start, lt: end };
+  } else if (fechaParam && dateOnlyRe.test(fechaParam)) {
     const start = new Date(fechaParam + "T00:00:00");
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
@@ -170,7 +178,10 @@ export async function GET(request: Request) {
 
   const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
-  const filename = `pedidos_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const filename =
+    fechaDesdeParam && dateOnlyRe.test(fechaDesdeParam) && fechaHastaParam && dateOnlyRe.test(fechaHastaParam)
+      ? `pedidos_${fechaDesdeParam}_${fechaHastaParam}.xlsx`
+      : `pedidos_${new Date().toISOString().slice(0, 10)}.xlsx`;
   return new NextResponse(buffer, {
     status: 200,
     headers: {

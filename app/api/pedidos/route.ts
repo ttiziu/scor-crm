@@ -20,7 +20,9 @@ export async function GET(request: Request) {
   const clienteId = searchParams.get("clienteId");
   const clienteQuery = searchParams.get("clienteQuery")?.trim(); // nombre o documento (buscar clientes y filtrar pedidos)
   const estadoParam = searchParams.get("estado");
-  const fechaParam = searchParams.get("fecha"); // YYYY-MM-DD: opcional; si no se envía, no filtra por fecha
+  const fechaParam = searchParams.get("fecha"); // YYYY-MM-DD: un solo día (p. ej. mis-pedidos)
+  const fechaDesdeParam = searchParams.get("fechaDesde"); // YYYY-MM-DD: inicio de rango
+  const fechaHastaParam = searchParams.get("fechaHasta"); // YYYY-MM-DD: fin de rango
   const repartidorIdParam = searchParams.get("repartidorId"); // solo para ADMIN/OPERADOR
 
   const where: Prisma.PedidoWhereInput = {
@@ -47,7 +49,13 @@ export async function GET(request: Request) {
     where.clienteId = ids.length === 0 ? { in: [] } : { in: ids };
   }
   if (isEstadoValido(estadoParam)) where.estado = estadoParam;
-  if (fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam)) {
+  const dateOnlyRe = /^\d{4}-\d{2}-\d{2}$/;
+  if (fechaDesdeParam && dateOnlyRe.test(fechaDesdeParam) && fechaHastaParam && dateOnlyRe.test(fechaHastaParam)) {
+    const start = new Date(fechaDesdeParam + "T00:00:00");
+    const end = new Date(fechaHastaParam + "T00:00:00");
+    end.setDate(end.getDate() + 1);
+    where.fechaProgramada = { gte: start, lt: end };
+  } else if (fechaParam && dateOnlyRe.test(fechaParam)) {
     const start = new Date(fechaParam + "T00:00:00");
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
