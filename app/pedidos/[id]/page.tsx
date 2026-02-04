@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
+import { AlertCircleIcon } from "lucide-react";
 
 type ClienteDireccion = { id: string; nombre: string; direccion: string; distrito: string | null };
 type Producto = { id: string; name: string };
@@ -294,7 +299,9 @@ export default function PedidoDetallePage() {
             <dt className="text-neutral-600">Fecha pedido</dt>
             <dd>{formatDate(pedido.fechaPedido)}</dd>
             <dt className="text-neutral-600">Estado</dt>
-            <dd>{pedido.estado === "CANCELLED" ? "Cancelado" : pedido.estado === "CREATED" ? "Creado" : pedido.estado === "IN_ROUTE" ? "En ruta" : pedido.estado === "DELIVERED" ? "Entregado" : pedido.estado}</dd>
+            <dd>
+              <EstadoPedidoBadge estado={pedido.estado} motivoCancelacion={pedido.motivoCancelacion} />
+            </dd>
           </dl>
         </section>
 
@@ -405,9 +412,9 @@ export default function PedidoDetallePage() {
           <div>
             <div className="flex justify-between items-center mb-1">
               <label className="block text-sm">Líneas del pedido</label>
-              <button type="button" onClick={addLinea} className="text-sm underline">
+              <Button type="button" variant="link" size="sm" onClick={addLinea}>
                 + Agregar línea
-              </button>
+              </Button>
             </div>
             <div className="space-y-2">
               {form.lineas.map((l, i) => (
@@ -456,9 +463,9 @@ export default function PedidoDetallePage() {
                     className="w-28 border rounded px-2 py-1.5 text-sm"
                   />
                   {form.lineas.length > 1 && (
-                    <button type="button" onClick={() => removeLinea(i)} className="text-red-600 text-sm">
+                    <Button type="button" variant="link" size="sm" onClick={() => removeLinea(i)} className="text-red-600">
                       Quitar
-                    </button>
+                    </Button>
                   )}
                 </div>
               ))}
@@ -478,10 +485,17 @@ export default function PedidoDetallePage() {
             />
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button type="submit" disabled={saving} className="py-2 px-4 rounded bg-foreground text-background text-sm disabled:opacity-50">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircleIcon />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          <Button type="submit" disabled={saving} size="sm">
+            {saving && <Spinner data-icon="inline-start" />}
             {saving ? "Guardando…" : "Guardar cambios"}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

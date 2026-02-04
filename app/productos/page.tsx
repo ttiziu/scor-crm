@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AlertCircleIcon } from "lucide-react";
 
 type Producto = {
   id: string;
@@ -155,10 +160,17 @@ export default function ProductosPage() {
               required
               className="w-full border rounded px-3 py-2"
             />
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <button type="submit" disabled={saving} className="py-2 px-4 rounded bg-foreground text-background text-sm disabled:opacity-50">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircleIcon />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <Button type="submit" disabled={saving} size="sm">
+              {saving && <Spinner data-icon="inline-start" />}
               {saving ? "Guardando…" : "Guardar"}
-            </button>
+            </Button>
           </form>
         )}
       </div>
@@ -166,25 +178,25 @@ export default function ProductosPage() {
       {productos.length === 100 && (
         <p className="text-sm text-neutral-600 mb-2">Mostrando últimos 100 productos.</p>
       )}
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse border border-neutral-300">
-          <thead>
-            <tr className="bg-neutral-100">
-              <th className="border border-neutral-300 px-3 py-2 text-left">Nombre</th>
-              <th className="border border-neutral-300 px-3 py-2 text-left w-40">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nombre</TableHead>
+              <TableHead className="w-40">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {productos.length === 0 ? (
-              <tr>
-                <td colSpan={2} className="border border-neutral-300 px-3 py-4 text-center text-neutral-500">
+              <TableRow>
+                <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
                   No hay productos. Agrega algunos o ejecuta el seed.
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               productos.map((p) => (
-                <tr key={p.id}>
-                  <td className="border border-neutral-300 px-3 py-2">
+                <TableRow key={p.id}>
+                  <TableCell>
                     {editingId === p.id ? (
                       <input
                         value={editName}
@@ -195,51 +207,58 @@ export default function ProductosPage() {
                     ) : (
                       p.name
                     )}
-                  </td>
-                  <td className="border border-neutral-300 px-3 py-2">
+                  </TableCell>
+                  <TableCell>
                     {editingId === p.id ? (
                       <>
-                        <button
+                        <Button
                           type="button"
+                          variant="link"
+                          size="sm"
                           onClick={() => handleUpdate(p.id)}
                           disabled={saving}
-                          className="text-sm underline mr-2 disabled:opacity-50"
+                          className="mr-2"
                         >
                           Guardar
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          variant="link"
+                          size="sm"
                           onClick={() => { setEditingId(null); setEditName(""); }}
-                          className="text-sm underline"
                         >
                           Cancelar
-                        </button>
+                        </Button>
                       </>
                     ) : (
                       <>
-                        <button
+                        <Button
                           type="button"
+                          variant="link"
+                          size="sm"
                           onClick={() => { setEditingId(p.id); setEditName(p.name); }}
-                          className="text-sm underline mr-2"
+                          className="mr-2"
                         >
                           Editar
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          variant="link"
+                          size="sm"
                           onClick={() => handleDelete(p.id)}
                           disabled={saving}
-                          className="text-sm underline text-red-600"
+                          className="text-red-600"
                         >
                           Eliminar
-                        </button>
+                        </Button>
                       </>
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

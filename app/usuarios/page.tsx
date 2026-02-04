@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AlertCircleIcon } from "lucide-react";
 
 type Usuario = {
   id: string;
@@ -167,13 +172,9 @@ export default function UsuariosPage() {
       </header>
 
       <div className="mb-6">
-        <button
-          type="button"
-          onClick={() => setFormOpen(!formOpen)}
-          className="py-2 px-4 rounded bg-foreground text-background text-sm"
-        >
+        <Button type="button" size="sm" onClick={() => setFormOpen(!formOpen)}>
           {formOpen ? "Cerrar formulario" : "Nuevo usuario"}
-        </button>
+        </Button>
         {formOpen && (
           <form onSubmit={handleSubmit} className="mt-4 p-4 border rounded max-w-md space-y-3">
             <input
@@ -200,14 +201,16 @@ export default function UsuariosPage() {
                 minLength={6}
                 className="flex-1 border rounded px-3 py-2"
               />
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setShowPassword((v) => !v)}
-                className="py-2 px-3 rounded border text-sm whitespace-nowrap"
                 title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                className="whitespace-nowrap"
               >
                 {showPassword ? "Ocultar" : "Mostrar"}
-              </button>
+              </Button>
             </div>
             <input
               placeholder="Nombre *"
@@ -228,10 +231,17 @@ export default function UsuariosPage() {
                 <option value="ADMIN">Administrador</option>
               </select>
             </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <button type="submit" disabled={saving} className="py-2 px-4 rounded bg-foreground text-background text-sm disabled:opacity-50">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircleIcon />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <Button type="submit" disabled={saving} size="sm">
+              {saving && <Spinner data-icon="inline-start" />}
               {saving ? "Guardando…" : "Guardar"}
-            </button>
+            </Button>
           </form>
         )}
       </div>
@@ -239,44 +249,44 @@ export default function UsuariosPage() {
       {usuarios.length === 100 && (
         <p className="text-sm text-neutral-600 mb-2">Mostrando últimos 100 usuarios.</p>
       )}
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse border border-neutral-300">
-          <thead>
-            <tr className="bg-neutral-100">
-              <th className="border border-neutral-300 px-3 py-2 text-left">Usuario</th>
-              <th className="border border-neutral-300 px-3 py-2 text-left">Nombre</th>
-              <th className="border border-neutral-300 px-3 py-2 text-left">Rol</th>
-              <th className="border border-neutral-300 px-3 py-2 text-left">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Usuario</TableHead>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Rol</TableHead>
+              <TableHead>Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {usuarios.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="border border-neutral-300 px-3 py-4 text-center text-neutral-500">
+              <TableRow>
+                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                   No hay usuarios
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               usuarios.map((u) => (
-                <tr key={u.id}>
+                <TableRow key={u.id}>
                   {editingId === u.id ? (
                     <>
-                      <td className="border border-neutral-300 px-3 py-2">
+                      <TableCell>
                         <input
                           value={editForm.username}
                           onChange={(e) => setEditForm((f) => ({ ...f, username: e.target.value }))}
                           className="w-full border rounded px-2 py-1"
                           placeholder="Usuario"
                         />
-                      </td>
-                      <td className="border border-neutral-300 px-3 py-2">
+                      </TableCell>
+                      <TableCell>
                         <input
                           value={editForm.name}
                           onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
                           className="w-full border rounded px-2 py-1"
                         />
-                      </td>
-                      <td className="border border-neutral-300 px-3 py-2">
+                      </TableCell>
+                      <TableCell>
                         <select
                           value={editForm.role}
                           onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
@@ -286,8 +296,8 @@ export default function UsuariosPage() {
                           <option value="REPARTIDOR">Repartidor</option>
                           <option value="ADMIN">Administrador</option>
                         </select>
-                      </td>
-                      <td className="border border-neutral-300 px-3 py-2 space-x-2">
+                      </TableCell>
+                      <TableCell className="space-x-2">
                         <input
                           type={showEditPassword ? "text" : "password"}
                           placeholder="Nueva contraseña (opcional)"
@@ -295,34 +305,35 @@ export default function UsuariosPage() {
                           onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))}
                           className="border rounded px-2 py-1 w-40"
                         />
-                        <button
+                        <Button
                           type="button"
+                          variant="link"
+                          size="sm"
                           onClick={() => setShowEditPassword((v) => !v)}
-                          className="text-sm underline"
                           title={showEditPassword ? "Ocultar" : "Mostrar"}
                         >
                           {showEditPassword ? "Ocultar" : "Mostrar"}
-                        </button>
-                        <button type="button" onClick={() => handleUpdate(u.id)} disabled={saving} className="text-sm underline">Guardar</button>
-                        <button type="button" onClick={() => { setEditingId(null); setEditForm({ username: "", name: "", role: "OPERADOR", password: "" }); }} className="text-sm underline">Cancelar</button>
-                      </td>
+                        </Button>
+                        <Button type="button" variant="link" size="sm" onClick={() => handleUpdate(u.id)} disabled={saving}>Guardar</Button>
+                        <Button type="button" variant="link" size="sm" onClick={() => { setEditingId(null); setEditForm({ username: "", name: "", role: "OPERADOR", password: "" }); }}>Cancelar</Button>
+                      </TableCell>
                     </>
                   ) : (
                     <>
-                      <td className="border border-neutral-300 px-3 py-2">{u.username ?? "—"}</td>
-                      <td className="border border-neutral-300 px-3 py-2">{u.name}</td>
-                      <td className="border border-neutral-300 px-3 py-2">{u.role}</td>
-                      <td className="border border-neutral-300 px-3 py-2">
-                        <button type="button" onClick={() => { setEditingId(u.id); setEditForm({ username: u.username ?? "", name: u.name, role: u.role, password: "" }); }} className="text-sm underline mr-2">Editar</button>
-                        <button type="button" onClick={() => handleDelete(u.id)} className="text-sm underline text-red-600">Eliminar</button>
-                      </td>
+                      <TableCell>{u.username ?? "—"}</TableCell>
+                      <TableCell>{u.name}</TableCell>
+                      <TableCell>{u.role}</TableCell>
+                      <TableCell>
+                        <Button type="button" variant="link" size="sm" onClick={() => { setEditingId(u.id); setEditForm({ username: u.username ?? "", name: u.name, role: u.role, password: "" }); }} className="mr-2">Editar</Button>
+                        <Button type="button" variant="link" size="sm" onClick={() => handleDelete(u.id)} className="text-red-600">Eliminar</Button>
+                      </TableCell>
                     </>
                   )}
-                </tr>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

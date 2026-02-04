@@ -3,6 +3,12 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
+import { AlertCircleIcon } from "lucide-react";
 
 type Cliente = { id: string; name: string; documento?: string | null };
 type ClienteDireccion = { id: string; nombre: string; direccion: string; distrito: string | null };
@@ -501,13 +507,9 @@ export default function PedidosPage() {
 
       <div className="mb-6">
         {userRole !== "REPARTIDOR" && (
-          <button
-            type="button"
-            onClick={() => setFormOpen(!formOpen)}
-            className="py-2 px-4 rounded bg-foreground text-background text-sm"
-          >
+          <Button type="button" size="sm" onClick={() => setFormOpen(!formOpen)}>
             {formOpen ? "Cerrar formulario" : "Nuevo pedido"}
-          </button>
+          </Button>
         )}
         {formOpen && (
           <form onSubmit={handleSubmit} className="mt-4 p-4 border rounded max-w-2xl space-y-4">
@@ -536,10 +538,12 @@ export default function PedidosPage() {
                     clientesFiltrados.map((c) => {
                       const text = `${c.name}${c.documento ? " — " + c.documento : ""}`;
                       return (
-                        <button
+                        <Button
                           key={c.id}
                           type="button"
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-100 border-b border-neutral-100 last:border-0"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start rounded-none border-b border-neutral-100 last:border-0 h-auto py-2"
                           onMouseDown={(e) => {
                             e.preventDefault();
                             setForm((f) => ({ ...f, clienteId: c.id }));
@@ -549,7 +553,7 @@ export default function PedidosPage() {
                           }}
                         >
                           {text}
-                        </button>
+                        </Button>
                       );
                     })
                   )}
@@ -641,9 +645,9 @@ export default function PedidosPage() {
             <div>
               <div className="flex justify-between items-center mb-1">
                 <label className="block text-sm">Líneas del pedido *</label>
-                <button type="button" onClick={addLinea} className="text-sm underline">
+                <Button type="button" variant="link" size="sm" onClick={addLinea}>
                   + Agregar línea
-                </button>
+                </Button>
               </div>
               <div className="space-y-2">
                 {form.lineas.map((l, i) => (
@@ -692,9 +696,9 @@ export default function PedidosPage() {
                       className="w-28 border rounded px-2 py-1.5 text-sm"
                     />
                     {form.lineas.length > 1 && (
-                      <button type="button" onClick={() => removeLinea(i)} className="text-red-600 text-sm">
+                      <Button type="button" variant="link" size="sm" onClick={() => removeLinea(i)} className="text-red-600">
                         Quitar
-                      </button>
+                      </Button>
                     )}
                   </div>
                 ))}
@@ -711,10 +715,17 @@ export default function PedidosPage() {
               />
             </div>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <button type="submit" disabled={saving} className="py-2 px-4 rounded bg-foreground text-background text-sm disabled:opacity-50">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircleIcon />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <Button type="submit" disabled={saving} size="sm">
+              {saving && <Spinner data-icon="inline-start" />}
               {saving ? "Guardando…" : "Guardar"}
-            </button>
+            </Button>
           </form>
         )}
       </div>
@@ -747,8 +758,8 @@ export default function PedidosPage() {
               className="border rounded px-2 py-1.5 text-sm [color-scheme:light]"
               title="Fin del rango"
             />
-            <button type="button" onClick={() => { setFechaDesde(todayISO()); setFechaHasta(todayISO()); }} className="py-1.5 px-2 rounded border text-sm hover:bg-neutral-100">Hoy</button>
-            <button type="button" onClick={() => { setFechaDesde(""); setFechaHasta(""); }} className="py-1.5 px-2 rounded border text-sm hover:bg-neutral-100">Todas</button>
+            <Button type="button" variant="outline" size="sm" onClick={() => { setFechaDesde(todayISO()); setFechaHasta(todayISO()); }}>Hoy</Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => { setFechaDesde(""); setFechaHasta(""); }}>Todas</Button>
           </div>
           {userRole !== "REPARTIDOR" && repartidores.length > 0 && (
             <div className="flex items-center gap-1">
@@ -781,16 +792,19 @@ export default function PedidosPage() {
               className="border rounded px-2 py-1.5 text-sm w-40"
             />
           </div>
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={loadPedidos}
-            className="py-1.5 px-3 rounded border text-sm hover:bg-neutral-100"
             title="Actualizar lista (p. ej. si el repartidor marcó En ruta o Entregado)"
           >
             Actualizar
-          </button>
-            <button
+          </Button>
+            <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => {
               setFechaDesde(todayISO());
               setFechaHasta(todayISO());
@@ -799,19 +813,20 @@ export default function PedidosPage() {
               setClienteBusquedaInput("");
               setClienteBusqueda("");
             }}
-            className="py-1.5 px-3 rounded border text-sm hover:bg-neutral-100"
           >
             Limpiar filtros
-          </button>
+          </Button>
           {userRole !== "REPARTIDOR" && (
-            <button
+            <Button
               type="button"
+              size="sm"
               onClick={exportarPedidos}
               disabled={exportando}
-              className="py-1.5 px-3 rounded bg-green-700 text-white text-sm hover:bg-green-800 disabled:opacity-50"
+              className="bg-green-700 text-white hover:bg-green-800"
             >
+              {exportando && <Spinner data-icon="inline-start" />}
               {exportando ? "Exportando…" : "Exportar Excel"}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -828,10 +843,16 @@ export default function PedidosPage() {
               rows={3}
               className="w-full border rounded px-3 py-2 text-sm mb-3"
             />
-            {error && <p className="text-sm text-red-600 mb-2">{error}</p>}
+            {error && (
+              <Alert variant="destructive" className="mb-2">
+                <AlertCircleIcon />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
             <div className="flex gap-2 justify-end">
-              <button type="button" onClick={() => { setCancelando(null); setError(""); }} className="py-2 px-3 rounded border text-sm">Cerrar</button>
-              <button type="button" onClick={cancelarPedido} disabled={saving} className="py-2 px-3 rounded bg-red-600 text-white text-sm disabled:opacity-50">Confirmar cancelación</button>
+              <Button type="button" variant="outline" size="sm" onClick={() => { setCancelando(null); setError(""); }}>Cerrar</Button>
+              <Button type="button" size="sm" onClick={cancelarPedido} disabled={saving} variant="destructive">Confirmar cancelación</Button>
             </div>
           </div>
         </div>
@@ -840,63 +861,67 @@ export default function PedidosPage() {
       {pedidos.length === 100 && (
         <p className="text-sm text-neutral-600 mb-2">Mostrando últimos 100 pedidos.</p>
       )}
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse border border-neutral-300">
-          <thead>
-            <tr className="bg-neutral-100">
-              <th className="border border-neutral-300 px-3 py-2 text-left">Cliente</th>
-              <th className="border border-neutral-300 px-3 py-2 text-left">Estado</th>
-              <th className="border border-neutral-300 px-3 py-2 text-left">Detalle / Total</th>
-              <th className="border border-neutral-300 px-3 py-2 text-left">Fecha</th>
-              <th className="border border-neutral-300 px-3 py-2 text-left">Programado</th>
-              <th className="border border-neutral-300 px-3 py-2 text-left">Repartidor</th>
-              <th className="border border-neutral-300 px-3 py-2 text-left">Pago</th>
-              <th className="border border-neutral-300 px-3 py-2 text-left">Observaciones</th>
-              <th className="border border-neutral-300 px-3 py-2 text-left min-w-[180px]">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Detalle / Total</TableHead>
+              <TableHead>Fecha</TableHead>
+              <TableHead>Programado</TableHead>
+              <TableHead>Repartidor</TableHead>
+              <TableHead>Pago</TableHead>
+              <TableHead>Observaciones</TableHead>
+              <TableHead className="min-w-[180px]">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {pedidos.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="border border-neutral-300 px-3 py-4 text-center text-neutral-500">
+              <TableRow>
+                <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
                   {(fechaDesde && fechaHasta) || repartidorFiltro || estadoFiltro || clienteBusqueda.trim() ? "No hay pedidos con estos filtros" : "No hay pedidos"}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               pedidos.map((p) => (
-                <tr key={p.id}>
-                  <td className="border border-neutral-300 px-3 py-2">{p.cliente?.name ?? "—"}</td>
-                  <td className="border border-neutral-300 px-3 py-2">
-                    {p.estado === "CANCELLED" ? (
-                      <span className="text-red-700" title={p.motivoCancelacion ?? undefined}>Cancelado{p.motivoCancelacion ? ": " + p.motivoCancelacion : ""}</span>
-                    ) : p.estado === "CREATED" ? "Creado" : p.estado === "IN_ROUTE" ? "En ruta" : p.estado === "DELIVERED" ? "Entregado" : p.estado}
-                  </td>
-                  <td className="border border-neutral-300 px-3 py-2">{itemsSummary(p)}</td>
-                  <td className="border border-neutral-300 px-3 py-2">{formatDate(p.fechaPedido)}</td>
-                  <td className="border border-neutral-300 px-3 py-2">{formatDate(p.fechaProgramada)}</td>
-                  <td className="border border-neutral-300 px-3 py-2">{p.repartidor?.name ?? "—"}</td>
-                  <td className="border border-neutral-300 px-3 py-2">
+                <TableRow key={p.id}>
+                  <TableCell>{p.cliente?.name ?? "—"}</TableCell>
+                  <TableCell>
+                    <EstadoPedidoBadge
+                      estado={p.estado}
+                      motivoCancelacion={p.motivoCancelacion}
+                      loading={updatingEstadoId === p.id}
+                    />
+                  </TableCell>
+                  <TableCell>{itemsSummary(p)}</TableCell>
+                  <TableCell>{formatDate(p.fechaPedido)}</TableCell>
+                  <TableCell>{formatDate(p.fechaProgramada)}</TableCell>
+                  <TableCell>{p.repartidor?.name ?? "—"}</TableCell>
+                  <TableCell>
                     {p.formaPago ?? "—"}
                     {p.formaPago === "EFECTIVO" && p.efectivoCon != null && ` (con S/ ${Number(p.efectivoCon)})`}
-                  </td>
-                  <td className="border border-neutral-300 px-3 py-2">{p.observaciones ?? "—"}</td>
-                  <td className="border border-neutral-300 px-3 py-2">
-                    <Link href={`/pedidos/${p.id}`} className="text-sm underline mr-2">Ver / Editar</Link>
-                    {p.estado === "CREATED" && (
-                      <button type="button" onClick={() => cambiarEstado(p.id, "IN_ROUTE")} disabled={updatingEstadoId === p.id} className="text-sm text-amber-700 underline mr-1">En ruta</button>
-                    )}
-                    {(p.estado === "CREATED" || p.estado === "IN_ROUTE") && (
-                      <button type="button" onClick={() => cambiarEstado(p.id, "DELIVERED")} disabled={updatingEstadoId === p.id} className="text-sm text-green-700 underline mr-1">Entregado</button>
-                    )}
-                    {(p.estado === "CREATED" || p.estado === "IN_ROUTE") && (
-                      <button type="button" onClick={() => { setCancelando({ id: p.id, motivo: "" }); setError(""); }} className="text-sm text-red-600 underline">Cancelar</button>
-                    )}
-                  </td>
-                </tr>
+                  </TableCell>
+                  <TableCell>{p.observaciones ?? "—"}</TableCell>
+                  <TableCell className="align-middle whitespace-normal">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <Link href={`/pedidos/${p.id}`} className="text-sm underline shrink-0">Ver / Editar</Link>
+                      {p.estado === "CREATED" && (
+                        <Button type="button" variant="link" size="sm" onClick={() => cambiarEstado(p.id, "IN_ROUTE")} disabled={updatingEstadoId === p.id} className="text-amber-700 h-auto p-0 shrink-0">En ruta</Button>
+                      )}
+                      {(p.estado === "CREATED" || p.estado === "IN_ROUTE") && (
+                        <Button type="button" variant="link" size="sm" onClick={() => cambiarEstado(p.id, "DELIVERED")} disabled={updatingEstadoId === p.id} className="text-green-700 h-auto p-0 shrink-0">Entregado</Button>
+                      )}
+                      {(p.estado === "CREATED" || p.estado === "IN_ROUTE") && (
+                        <Button type="button" variant="link" size="sm" onClick={() => { setCancelando({ id: p.id, motivo: "" }); setError(""); }} className="text-red-600 h-auto p-0 shrink-0">Cancelar</Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

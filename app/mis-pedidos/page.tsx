@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
 
 function todayISO() {
   const d = new Date();
@@ -155,12 +157,12 @@ export default function MisPedidosPage() {
             onChange={(e) => setFechaFiltro(e.target.value)}
             className="border rounded px-3 py-2 text-sm [color-scheme:light]"
           />
-          <button type="button" onClick={() => setFechaFiltro(todayISO())} className="py-2 px-3 rounded border text-sm hover:bg-neutral-100">
+          <Button type="button" variant="outline" size="sm" onClick={() => setFechaFiltro(todayISO())}>
             Hoy
-          </button>
-          <button type="button" onClick={loadPedidos} className="py-2 px-3 rounded border text-sm hover:bg-neutral-100" title="Actualizar lista (por si cancelaron un pedido)">
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={loadPedidos} title="Actualizar lista (por si cancelaron un pedido)">
             Actualizar
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -207,37 +209,34 @@ export default function MisPedidosPage() {
                 <p className="mt-1 text-sm text-neutral-500">Obs: {p.observaciones}</p>
               )}
               <div className="mt-3 flex gap-2 flex-wrap items-center">
-                {p.estado === "CANCELLED" ? (
-                  <span className="text-sm font-medium text-red-700">
-                    Envío cancelado{p.motivoCancelacion ? `: ${p.motivoCancelacion}` : ""}
-                  </span>
-                ) : (
+                <EstadoPedidoBadge
+                  estado={p.estado}
+                  motivoCancelacion={p.estado === "CANCELLED" ? p.motivoCancelacion : undefined}
+                  loading={updatingId === p.id}
+                />
+                {p.estado !== "CANCELLED" && (
                   <>
                     {p.estado === "CREATED" && (
-                      <button
+                      <Button
                         type="button"
+                        size="sm"
                         onClick={() => cambiarEstado(p.id, "IN_ROUTE")}
                         disabled={updatingId === p.id}
-                        className="py-1.5 px-3 rounded bg-amber-600 text-white text-sm disabled:opacity-50"
+                        className="bg-amber-600 text-white hover:bg-amber-700"
                       >
                         En ruta
-                      </button>
+                      </Button>
                     )}
                     {(p.estado === "CREATED" || p.estado === "IN_ROUTE") && (
-                      <button
+                      <Button
                         type="button"
+                        size="sm"
                         onClick={() => cambiarEstado(p.id, "DELIVERED")}
                         disabled={updatingId === p.id}
-                        className="py-1.5 px-3 rounded bg-green-600 text-white text-sm disabled:opacity-50"
+                        className="bg-green-600 text-white hover:bg-green-700"
                       >
                         Entregado
-                      </button>
-                    )}
-                    {p.estado === "IN_ROUTE" && (
-                      <span className="text-sm text-amber-700">En camino</span>
-                    )}
-                    {p.estado === "DELIVERED" && (
-                      <span className="text-sm text-green-700">✓ Entregado</span>
+                      </Button>
                     )}
                   </>
                 )}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 type User = { id: string; username: string; role: string };
 
@@ -91,13 +92,9 @@ export default function HomePage() {
         <h1 className="text-xl font-semibold">SCOR CRM</h1>
         <div className="flex items-center gap-4">
           <span className="text-sm text-neutral-600">{user.username}</span>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="text-sm underline"
-          >
+          <Button type="button" variant="link" size="sm" onClick={handleLogout}>
             Cerrar sesión
-          </button>
+          </Button>
         </div>
       </header>
       <main>

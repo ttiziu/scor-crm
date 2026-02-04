@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { AlertCircleIcon } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -70,17 +74,20 @@ export default function LoginPage() {
             />
           </div>
           {error && (
-            <p className="text-sm text-red-600" role="alert">
-              {error}
-            </p>
+            <Alert variant="destructive">
+              <AlertCircleIcon />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
-          <button
+          <Button
             type="submit"
             disabled={loading}
-            className="w-full py-2 px-4 rounded bg-foreground text-background font-medium disabled:opacity-50"
+            className="w-full"
           >
+            {loading && <Spinner data-icon="inline-start" />}
             {loading ? "Entrando…" : "Entrar"}
-          </button>
+          </Button>
         </form>
       </div>
     </div>
