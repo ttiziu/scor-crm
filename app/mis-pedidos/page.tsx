@@ -217,31 +217,33 @@ export default function MisPedidosPage() {
                   <div className="min-w-0 flex-1">
                     <h2 className="font-semibold text-neutral-900 truncate">{p.cliente.name}</h2>
                     {direccionEntrega(p) && (
-                      <div className="mt-1.5 flex items-start gap-1.5 flex-wrap">
-                        <MapPin className="size-4 shrink-0 mt-0.5 text-neutral-500" />
-                        <span className="text-base text-neutral-800 break-words flex-1 min-w-0 font-medium">{direccionEntrega(p)}</span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => copiarDireccion(p.id, direccionEntrega(p) ?? "")}
-                          title="Copiar dirección (pegar en Google Maps)"
-                          className="shrink-0 text-neutral-600 hover:text-neutral-800 h-8 w-8"
-                        >
-                          {copiedId === p.id ? <Check className="size-4 text-green-600" /> : <Copy className="size-4" />}
-                        </Button>
+                      <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                        <MapPin className="size-4 shrink-0 text-neutral-500" />
+                        <span className="inline-flex items-center gap-1.5 flex-wrap text-base text-neutral-700 min-w-0">
+                          <span className="break-words">{direccionEntrega(p)}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => copiarDireccion(p.id, direccionEntrega(p) ?? "")}
+                            title="Copiar dirección (pegar en Google Maps)"
+                            className="shrink-0 text-neutral-500 hover:text-neutral-700 h-8 w-8 flex items-center justify-center"
+                          >
+                            {copiedId === p.id ? <Check className="size-4 text-green-600" /> : <Copy className="size-4" />}
+                          </Button>
+                        </span>
                       </div>
                     )}
                     {p.cliente.telefono && (
-                      <p className="mt-1 text-base text-neutral-800 flex items-center gap-1.5">
+                      <p className="mt-1 text-base text-neutral-700 flex items-center gap-1.5">
                         <Phone className="size-4 shrink-0 text-neutral-500" />
-                        <a href={`tel:${p.cliente.telefono}`} className="underline font-medium">{p.cliente.telefono}</a>
+                        <a href={`tel:${p.cliente.telefono}`} className="underline">{p.cliente.telefono}</a>
                       </p>
                     )}
                   </div>
                   <div className="shrink-0 text-right sm:text-right">
                     <p className="font-semibold text-lg text-neutral-900">S/ {total(p).toFixed(2)}</p>
-                    <p className="text-sm text-neutral-700 font-medium">
+                    <p className="text-sm text-neutral-600">
                       {p.formaPago ?? "—"}
                       {p.formaPago === "EFECTIVO" && p.efectivoCon != null && (
                         <span> (con S/ {Number(p.efectivoCon)})</span>
@@ -251,7 +253,7 @@ export default function MisPedidosPage() {
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-neutral-200">
-                  <p className="text-base text-neutral-800 font-medium">
+                  <p className="text-base text-neutral-700">
                     {p.items.map((i) => (
                       <span key={i.id} className="mr-3 last:mr-0">
                         {i.cantidad}× {i.producto.name}
@@ -262,7 +264,7 @@ export default function MisPedidosPage() {
                 </div>
 
                 {p.observaciones && (
-                  <p className="mt-2 text-base text-neutral-800 bg-neutral-100 rounded-lg px-3 py-2.5 font-medium border border-neutral-200">Obs: {p.observaciones}</p>
+                  <p className="mt-2 text-base text-neutral-700 bg-neutral-100 rounded-lg px-3 py-2.5 border border-neutral-200">Obs: {p.observaciones}</p>
                 )}
 
                 <div className="mt-4 pt-3 border-t border-neutral-200 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

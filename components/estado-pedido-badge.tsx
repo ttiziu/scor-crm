@@ -1,6 +1,11 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { Spinner } from "@/components/ui/spinner";
 
 const ESTADO_CONFIG: Record<
@@ -42,19 +47,43 @@ export function EstadoPedidoBadge({
     label: estado,
     className: "bg-muted text-muted-foreground",
   };
-  const text =
-    estado === "CANCELLED" && motivoCancelacion
-      ? `${config.label}: ${motivoCancelacion}`
-      : config.label;
+  const isCancelledWithMotivo = estado === "CANCELLED" && motivoCancelacion;
+  const badgeText = config.label;
+
+  const badge = (
+    <Badge variant="outline" className={`${config.className} ${className ?? ""}`}>
+      {loading && <Spinner className="size-3 shrink-0" />}
+      <span>{badgeText}</span>
+    </Badge>
+  );
+
+  if (isCancelledWithMotivo) {
+    return (
+      <span className="inline-block">
+        <HoverCard openDelay={200} closeDelay={100}>
+          <HoverCardTrigger asChild>
+            <button
+              type="button"
+              className="cursor-default focus:outline-none focus:ring-0 [&>*]:pointer-events-none"
+              aria-label="Ver motivo de cancelación"
+            >
+              {badge}
+            </button>
+          </HoverCardTrigger>
+          <HoverCardContent side="top" align="start" className="w-64">
+            <div className="space-y-1">
+              <h4 className="text-sm font-medium">Motivo de cancelación</h4>
+              <p className="text-sm text-neutral-700">{motivoCancelacion}</p>
+            </div>
+          </HoverCardContent>
+        </HoverCard>
+      </span>
+    );
+  }
 
   return (
     <span className="inline-block">
-      <Badge variant="outline" className={`${config.className} ${className ?? ""}`}>
-        {loading && <Spinner className="size-3 shrink-0" />}
-        <span className={motivoCancelacion ? "max-w-[200px] truncate" : undefined} title={motivoCancelacion ?? undefined}>
-          {text}
-        </span>
-      </Badge>
+      {badge}
     </span>
   );
 }
