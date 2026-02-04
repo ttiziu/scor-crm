@@ -40,9 +40,11 @@ export async function GET(request: Request, { params }: RouteParams) {
         select: {
           id: true,
           productoId: true,
+          marcaId: true,
           cantidad: true,
           precioUnitario: true,
           producto: { select: { id: true, name: true } },
+          marca: { select: { id: true, name: true } },
         },
       },
     },
@@ -109,6 +111,16 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       if (productos.length !== productoIds.length) {
         return NextResponse.json({ error: "Uno o más productos no existen o no pertenecen al tenant" }, { status: 400 });
       }
+      const marcaIds = [...new Set(data.items.map((i) => i.marcaId).filter(Boolean))] as string[];
+      if (marcaIds.length > 0) {
+        const marcas = await prisma.marca.findMany({
+          where: { id: { in: marcaIds }, tenantId: session.tenantId },
+          select: { id: true },
+        });
+        if (marcas.length !== marcaIds.length) {
+          return NextResponse.json({ error: "Una o más marcas no existen o no pertenecen al tenant" }, { status: 400 });
+        }
+      }
     }
 
     let updateData: Parameters<typeof prisma.pedido.update>[0]["data"];
@@ -140,6 +152,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
           updateData.items = {
             create: data.items.map((item) => ({
               productoId: item.productoId,
+              marcaId: item.marcaId && item.marcaId !== "" ? item.marcaId : null,
               cantidad: item.cantidad,
               precioUnitario: item.precioUnitario,
             })),
@@ -173,9 +186,11 @@ export async function PATCH(request: Request, { params }: RouteParams) {
           select: {
             id: true,
             productoId: true,
+            marcaId: true,
             cantidad: true,
             precioUnitario: true,
             producto: { select: { id: true, name: true } },
+            marca: { select: { id: true, name: true } },
           },
         },
       },

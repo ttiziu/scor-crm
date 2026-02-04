@@ -6,8 +6,9 @@ import Link from "next/link";
 
 type ClienteDireccion = { id: string; nombre: string; direccion: string; distrito: string | null };
 type Producto = { id: string; name: string };
-type Usuario = { id: string; name: string; role: string };
-type LineaForm = { id?: string; productoId: string; cantidad: string; precioUnitario: string };
+type Marca = { id: string; name: string };
+type Repartidor = { id: string; name: string };
+type LineaForm = { id?: string; productoId: string; marcaId: string; cantidad: string; precioUnitario: string };
 
 type PedidoDetalle = {
   id: string;
@@ -27,14 +28,20 @@ type PedidoDetalle = {
   items: Array<{
     id: string;
     productoId: string;
+    marcaId: string | null;
     cantidad: number;
     precioUnitario: number;
     producto: { id: string; name: string };
+    marca?: { id: string; name: string } | null;
   }>;
 };
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function formatDate(s: string | null) {
@@ -53,7 +60,8 @@ export default function PedidoDetallePage() {
   const [pedido, setPedido] = useState<PedidoDetalle | null>(null);
   const [clienteDirecciones, setClienteDirecciones] = useState<ClienteDireccion[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [repartidores, setRepartidores] = useState<Usuario[]>([]);
+  const [marcas, setMarcas] = useState<Marca[]>([]);
+  const [repartidores, setRepartidores] = useState<Repartidor[]>([]);
   const [formasPago, setFormasPago] = useState<{ value: string; label: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -119,13 +127,14 @@ export default function PedidoDetallePage() {
             motivoCancelacion: data.motivoCancelacion ?? "",
             lineas:
               (data.items?.length
-                ? data.items.map((i: { id: string; productoId: string; cantidad: number; precioUnitario: number }) => ({
+                ? data.items.map((i: { id: string; productoId: string; marcaId?: string | null; cantidad: number; precioUnitario: number }) => ({
                     id: i.id,
                     productoId: i.productoId,
+                    marcaId: i.marcaId ?? "",
                     cantidad: String(i.cantidad),
                     precioUnitario: String(i.precioUnitario),
                   }))
-                : [{ productoId: "", cantidad: "1", precioUnitario: "" }]) ?? [],
+                : [{ productoId: "", marcaId: "", cantidad: "1", precioUnitario: "" }]) ?? [],
           });
           if (data.clienteId) {
             fetch(`/api/clientes/${data.clienteId}`, { credentials: "include" })
@@ -144,10 +153,14 @@ export default function PedidoDetallePage() {
       .then((r) => r.json())
       .then((d) => (Array.isArray(d) ? setProductos(d) : []))
       .catch(() => {});
-    fetch("/api/usuarios", { credentials: "include" })
-      .then((r) => (r.status === 403 ? [] : r.json()))
-      .then((d) => (Array.isArray(d) ? setRepartidores(d.filter((u: Usuario) => u.role === "REPARTIDOR")) : []))
+    fetch("/api/marcas", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => (Array.isArray(d) ? setMarcas(d) : []))
       .catch(() => {});
+    fetch("/api/repartidores", { credentials: "include" })
+      .then((r) => (r.status === 403 ? [] : r.json()))
+      .then((d) => (Array.isArray(d) ? setRepartidores(d) : setRepartidores([])))
+      .catch(() => setRepartidores([]));
     fetch("/api/formas-pago", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => (Array.isArray(d) && d.length > 0 ? setFormasPago(d) : setFormasPago([{ value: "YAPE", label: "Yape" }, { value: "PLIN", label: "Plin" }, { value: "TRANSFERENCIA", label: "Transferencia" }, { value: "EFECTIVO", label: "Efectivo" }, { value: "TARJETA", label: "Tarjeta" }])))
@@ -163,7 +176,7 @@ export default function PedidoDetallePage() {
   function addLinea() {
     setForm((f) => ({
       ...f,
-      lineas: [...f.lineas, { productoId: "", cantidad: "1", precioUnitario: "" }],
+      lineas: [...f.lineas, { productoId: "", marcaId: "", cantidad: "1", precioUnitario: "" }],
     }));
   }
   function removeLinea(i: number) {
@@ -199,6 +212,7 @@ export default function PedidoDetallePage() {
           motivoCancelacion: form.estado === "CANCELLED" ? (form.motivoCancelacion || null) : null,
           items: lineasValidas.map((l) => ({
             productoId: l.productoId,
+            marcaId: l.marcaId && l.marcaId !== "" ? l.marcaId : undefined,
             cantidad: parseInt(l.cantidad, 10),
             precioUnitario: Number(l.precioUnitario),
           })),
@@ -222,9 +236,10 @@ export default function PedidoDetallePage() {
         estado: data.estado ?? "",
         motivoCancelacion: data.motivoCancelacion ?? "",
         lineas:
-          data.items?.map((i: { id: string; productoId: string; cantidad: number; precioUnitario: number }) => ({
+          data.items?.map((i: { id: string; productoId: string; marcaId?: string | null; cantidad: number; precioUnitario: number }) => ({
             id: i.id,
             productoId: i.productoId,
+            marcaId: i.marcaId ?? "",
             cantidad: String(i.cantidad),
             precioUnitario: String(i.precioUnitario),
           })) ?? [],
@@ -325,9 +340,9 @@ export default function PedidoDetallePage() {
                 className="w-full border rounded px-3 py-2"
               >
                 <option value="">Sin asignar</option>
-                {repartidores.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
+                {repartidores.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
                   </option>
                 ))}
               </select>
@@ -407,6 +422,19 @@ export default function PedidoDetallePage() {
                     {productos.map((prod) => (
                       <option key={prod.id} value={prod.id}>
                         {prod.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={l.marcaId}
+                    onChange={(e) => setLinea(i, "marcaId", e.target.value)}
+                    className="min-w-[110px] border rounded px-2 py-1.5 text-sm"
+                    title="Marca del balón"
+                  >
+                    <option value="">Marca</option>
+                    {marcas.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
                       </option>
                     ))}
                   </select>

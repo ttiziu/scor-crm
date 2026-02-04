@@ -5,6 +5,7 @@ const formaPagoEnum = z.enum(["YAPE", "PLIN", "TRANSFERENCIA", "EFECTIVO", "TARJ
 
 const pedidoItemSchema = z.object({
   productoId: z.string().min(1, "Producto requerido"),
+  marcaId: z.string().optional().nullable(),
   cantidad: z.number().int().min(1, "Cantidad mínima 1"),
   precioUnitario: z.number().min(0, "Precio no negativo"),
 });

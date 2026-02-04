@@ -122,6 +122,20 @@ async function main() {
     });
   }
 
+  // Marcas de balón
+  const marcaNames = ["Solgas", "Limagas", "Caserito", "Petroperu"];
+  for (let i = 0; i < marcaNames.length; i++) {
+    await prisma.marca.upsert({
+      where: { id: `seed-marca-${i + 1}` },
+      update: { name: marcaNames[i] },
+      create: {
+        id: `seed-marca-${i + 1}`,
+        tenantId: tenant.id,
+        name: marcaNames[i],
+      },
+    });
+  }
+
   // Pedidos de ejemplo
   await prisma.pedido.upsert({
     where: { id: "seed-pedido-1" },

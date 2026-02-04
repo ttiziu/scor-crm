@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 type PedidoItem = {
@@ -13,6 +17,7 @@ type PedidoItem = {
   cantidad: number;
   precioUnitario: number | string;
   producto: { name: string };
+  marca?: { name: string } | null;
 };
 type Pedido = {
   id: string;
@@ -194,6 +199,7 @@ export default function MisPedidosPage() {
                 {p.items.map((i) => (
                   <span key={i.id} className="mr-3">
                     {i.cantidad}× {i.producto.name}
+                    {i.marca?.name ? ` (${i.marca.name})` : ""}
                   </span>
                 ))}
               </div>

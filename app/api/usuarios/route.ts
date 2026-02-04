@@ -13,9 +13,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
+  const PAGE_SIZE = 100;
   const users = await prisma.user.findMany({
     where: { tenantId: session.tenantId },
     orderBy: { createdAt: "desc" },
+    take: PAGE_SIZE,
     select: {
       id: true,
       username: true,

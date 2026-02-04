@@ -25,6 +25,8 @@ export default function UsuariosPage() {
   const [form, setForm] = useState({ username: "", email: "", password: "", name: "", role: "OPERADOR" });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ username: "", name: "", role: "OPERADOR", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   function loadUsuarios() {
     fetch("/api/usuarios", { credentials: "include" })
@@ -188,15 +190,25 @@ export default function UsuariosPage() {
               onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
               className="w-full border rounded px-3 py-2"
             />
-            <input
-              type="password"
-              placeholder="Contraseña * (mín. 6)"
-              value={form.password}
-              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-              required
-              minLength={6}
-              className="w-full border rounded px-3 py-2"
-            />
+            <div className="flex gap-2 items-center">
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Contraseña * (mín. 6)"
+                value={form.password}
+                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                required
+                minLength={6}
+                className="flex-1 border rounded px-3 py-2"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="py-2 px-3 rounded border text-sm whitespace-nowrap"
+                title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              >
+                {showPassword ? "Ocultar" : "Mostrar"}
+              </button>
+            </div>
             <input
               placeholder="Nombre *"
               value={form.name}
@@ -224,6 +236,9 @@ export default function UsuariosPage() {
         )}
       </div>
 
+      {usuarios.length === 100 && (
+        <p className="text-sm text-neutral-600 mb-2">Mostrando últimos 100 usuarios.</p>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse border border-neutral-300">
           <thead>
@@ -274,12 +289,20 @@ export default function UsuariosPage() {
                       </td>
                       <td className="border border-neutral-300 px-3 py-2 space-x-2">
                         <input
-                          type="password"
+                          type={showEditPassword ? "text" : "password"}
                           placeholder="Nueva contraseña (opcional)"
                           value={editForm.password}
                           onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))}
                           className="border rounded px-2 py-1 w-40"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowEditPassword((v) => !v)}
+                          className="text-sm underline"
+                          title={showEditPassword ? "Ocultar" : "Mostrar"}
+                        >
+                          {showEditPassword ? "Ocultar" : "Mostrar"}
+                        </button>
                         <button type="button" onClick={() => handleUpdate(u.id)} disabled={saving} className="text-sm underline">Guardar</button>
                         <button type="button" onClick={() => { setEditingId(null); setEditForm({ username: "", name: "", role: "OPERADOR", password: "" }); }} className="text-sm underline">Cancelar</button>
                       </td>

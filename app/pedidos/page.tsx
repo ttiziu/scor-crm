@@ -8,13 +8,16 @@ type Cliente = { id: string; name: string; documento?: string | null };
 type ClienteDireccion = { id: string; nombre: string; direccion: string; distrito: string | null };
 type ClienteDetalle = { direccion: string | null; distrito: string | null; direcciones: ClienteDireccion[] };
 type Producto = { id: string; name: string };
-type Usuario = { id: string; name: string; role: string };
+type Marca = { id: string; name: string };
+type Repartidor = { id: string; name: string };
 type PedidoItem = {
   id: string;
   productoId: string;
+  marcaId?: string | null;
   cantidad: number;
   precioUnitario: number | string;
   producto: { id: string; name: string };
+  marca?: { id: string; name: string } | null;
 };
 type Pedido = {
   id: string;
@@ -34,10 +37,14 @@ type Pedido = {
   items?: PedidoItem[];
 };
 
-type LineaForm = { productoId: ""; cantidad: "1"; precioUnitario: "" };
+type LineaForm = { productoId: ""; marcaId: ""; cantidad: "1"; precioUnitario: "" };
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export default function PedidosPage() {
@@ -46,7 +53,8 @@ export default function PedidosPage() {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [marcas, setMarcas] = useState<Marca[]>([]);
+  const [repartidores, setRepartidores] = useState<Repartidor[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userRole, setUserRole] = useState("");
   const [loading, setLoading] = useState(true);
@@ -62,14 +70,25 @@ export default function PedidosPage() {
     formaPago: "",
     efectivoCon: "",
     observaciones: "",
-    lineas: [{ productoId: "", cantidad: "1", precioUnitario: "" }] as LineaForm[],
+    lineas: [{ productoId: "", marcaId: "", cantidad: "1", precioUnitario: "" }] as LineaForm[],
   });
   const [clienteSearch, setClienteSearch] = useState("");
   const [clienteDropdownOpen, setClienteDropdownOpen] = useState(false);
   const [clienteDetalle, setClienteDetalle] = useState<ClienteDetalle | null>(null);
+  const [ultimoPedido, setUltimoPedido] = useState<{
+    clienteId: string;
+    data: {
+      formaPago: string | null;
+      efectivoCon: number | null;
+      clienteDireccionId: string;
+      observaciones: string;
+      items: Array<{ productoId: string; marcaId: string; cantidad: number; precioUnitario: number }>;
+    };
+  } | null>(null);
   const [fechaDesde, setFechaDesde] = useState(() => todayISO());
   const [fechaHasta, setFechaHasta] = useState(() => todayISO());
   const [repartidorFiltro, setRepartidorFiltro] = useState("");
+  const [clienteBusquedaInput, setClienteBusquedaInput] = useState("");
   const [clienteBusqueda, setClienteBusqueda] = useState("");
   const [estadoFiltro, setEstadoFiltro] = useState("");
   const [cancelando, setCancelando] = useState<{ id: string; motivo: string } | null>(null);
@@ -108,11 +127,18 @@ export default function PedidosPage() {
       .catch(() => setProductos([]));
   }
 
-  function loadUsuarios() {
-    fetch("/api/usuarios", { credentials: "include" })
+  function loadMarcas() {
+    fetch("/api/marcas", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => (Array.isArray(data) ? setMarcas(data) : setMarcas([])))
+      .catch(() => setMarcas([]));
+  }
+
+  function loadRepartidores() {
+    fetch("/api/repartidores", { credentials: "include" })
       .then((res) => (res.status === 403 ? [] : res.json()))
-      .then((data) => (Array.isArray(data) ? setUsuarios(data.filter((u: Usuario) => u.role === "REPARTIDOR")) : setUsuarios([])))
-      .catch(() => setUsuarios([]));
+      .then((data) => (Array.isArray(data) ? setRepartidores(data) : setRepartidores([])))
+      .catch(() => setRepartidores([]));
   }
 
   useEffect(() => {
@@ -138,7 +164,8 @@ export default function PedidosPage() {
         loadPedidos();
         loadClientes();
         loadProductos();
-        loadUsuarios();
+        loadMarcas();
+        loadRepartidores();
         fetch("/api/formas-pago", { credentials: "include" })
           .then((r) => (r.ok ? r.json() : []))
           .then((d) => (Array.isArray(d) && d.length > 0 ? setFormasPago(d) : setFormasPago([{ value: "YAPE", label: "Yape" }, { value: "PLIN", label: "Plin" }, { value: "TRANSFERENCIA", label: "Transferencia" }, { value: "EFECTIVO", label: "Efectivo" }, { value: "TARJETA", label: "Tarjeta" }])))
@@ -151,6 +178,7 @@ export default function PedidosPage() {
   useEffect(() => {
     if (!form.clienteId) {
       setClienteDetalle(null);
+      setUltimoPedido(null);
       setForm((f) => (f.clienteDireccionId ? { ...f, clienteDireccionId: "" } : f));
       return;
     }
@@ -170,6 +198,68 @@ export default function PedidosPage() {
       })
       .catch(() => setClienteDetalle(null));
   }, [form.clienteId]);
+
+  // Cargar último pedido del cliente para pre-llenar formulario
+  useEffect(() => {
+    if (!form.clienteId) {
+      setUltimoPedido(null);
+      return;
+    }
+    const cid = form.clienteId;
+    setUltimoPedido(null);
+    fetch(`/api/clientes/${cid}/ultimo-pedido`, { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.items?.length > 0) {
+          setUltimoPedido({ clienteId: cid, data });
+        } else {
+          setUltimoPedido(null);
+          setForm((f) => {
+            if (f.clienteId !== cid) return f;
+            return {
+              ...f,
+              formaPago: "",
+              efectivoCon: "",
+              observaciones: "",
+              clienteDireccionId: "",
+              lineas: [{ productoId: "", marcaId: "", cantidad: "1", precioUnitario: "" }],
+            };
+          });
+        }
+      })
+      .catch(() => setUltimoPedido(null));
+  }, [form.clienteId]);
+
+  // Aplicar último pedido al form cuando tengamos clienteDetalle (para validar dirección)
+  useEffect(() => {
+    if (!ultimoPedido || ultimoPedido.clienteId !== form.clienteId || !clienteDetalle) return;
+    const { data } = ultimoPedido;
+    const direccionIds = clienteDetalle.direcciones.map((d) => d.id);
+    const clienteDireccionId =
+      data.clienteDireccionId && direccionIds.includes(data.clienteDireccionId)
+        ? data.clienteDireccionId
+        : "";
+    setForm((f) => ({
+      ...f,
+      formaPago: data.formaPago ?? "",
+      efectivoCon: data.efectivoCon != null ? String(data.efectivoCon) : "",
+      observaciones: data.observaciones ?? "",
+      clienteDireccionId,
+      lineas: data.items.map((i) => ({
+        productoId: i.productoId,
+        marcaId: i.marcaId ?? "",
+        cantidad: String(i.cantidad),
+        precioUnitario: String(i.precioUnitario),
+      })),
+    }));
+    setUltimoPedido(null);
+  }, [ultimoPedido, form.clienteId, clienteDetalle]);
+
+  // Debounce búsqueda por cliente (evitar una petición por cada tecla)
+  useEffect(() => {
+    const t = setTimeout(() => setClienteBusqueda(clienteBusquedaInput), 400);
+    return () => clearTimeout(t);
+  }, [clienteBusquedaInput]);
 
   // Preseleccionar cliente y abrir formulario si se viene desde Clientes con ?clienteId=...
   useEffect(() => {
@@ -275,7 +365,7 @@ export default function PedidosPage() {
   function addLinea() {
     setForm((f) => ({
       ...f,
-      lineas: [...f.lineas, { productoId: "", cantidad: "1", precioUnitario: "" }],
+      lineas: [...f.lineas, { productoId: "", marcaId: "", cantidad: "1", precioUnitario: "" }],
     }));
   }
 
@@ -302,6 +392,12 @@ export default function PedidosPage() {
     const lineasValidas = form.lineas.filter(
       (l) => l.productoId && l.cantidad && parseInt(l.cantidad, 10) >= 1 && l.precioUnitario !== "" && Number(l.precioUnitario) >= 0
     );
+    const lineasPayload = lineasValidas.map((l) => ({
+      productoId: l.productoId,
+      marcaId: l.marcaId && l.marcaId !== "" ? l.marcaId : undefined,
+      cantidad: parseInt(l.cantidad, 10),
+      precioUnitario: Number(l.precioUnitario),
+    }));
     if (lineasValidas.length === 0) {
       setError("Agrega al menos una línea con producto, cantidad y precio");
       return;
@@ -321,11 +417,7 @@ export default function PedidosPage() {
           repartidorId: form.repartidorId || undefined,
           formaPago: form.formaPago || undefined,
           efectivoCon: form.efectivoCon ? Number(form.efectivoCon) : undefined,
-          items: lineasValidas.map((l) => ({
-            productoId: l.productoId,
-            cantidad: parseInt(l.cantidad, 10),
-            precioUnitario: Number(l.precioUnitario),
-          })),
+          items: lineasPayload,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -341,7 +433,7 @@ export default function PedidosPage() {
         formaPago: "",
         efectivoCon: "",
         observaciones: "",
-        lineas: [{ productoId: "", cantidad: "1", precioUnitario: "" }],
+        lineas: [{ productoId: "", marcaId: "", cantidad: "1", precioUnitario: "" }],
       });
       setClienteDetalle(null);
       setClienteSearch("");
@@ -509,9 +601,9 @@ export default function PedidosPage() {
                   className="w-full border rounded px-3 py-2"
                 >
                   <option value="">Sin asignar</option>
-                  {usuarios.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
+                  {repartidores.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
                     </option>
                   ))}
                 </select>
@@ -569,6 +661,19 @@ export default function PedidosPage() {
                         </option>
                       ))}
                     </select>
+                    <select
+                      value={l.marcaId}
+                      onChange={(e) => setLinea(i, "marcaId", e.target.value)}
+                      className="min-w-[110px] border rounded px-2 py-1.5 text-sm"
+                      title="Marca del balón"
+                    >
+                      <option value="">Marca</option>
+                      {marcas.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
                     <input
                       type="number"
                       min={1}
@@ -622,7 +727,11 @@ export default function PedidosPage() {
             <input
               type="date"
               value={fechaDesde}
-              onChange={(e) => setFechaDesde(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setFechaDesde(v);
+                if (v && fechaHasta && v > fechaHasta) setFechaHasta(v);
+              }}
               className="border rounded px-2 py-1.5 text-sm [color-scheme:light]"
               title="Inicio del rango"
             />
@@ -630,20 +739,24 @@ export default function PedidosPage() {
             <input
               type="date"
               value={fechaHasta}
-              onChange={(e) => setFechaHasta(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setFechaHasta(v);
+                if (v && fechaDesde && v < fechaDesde) setFechaDesde(v);
+              }}
               className="border rounded px-2 py-1.5 text-sm [color-scheme:light]"
               title="Fin del rango"
             />
             <button type="button" onClick={() => { setFechaDesde(todayISO()); setFechaHasta(todayISO()); }} className="py-1.5 px-2 rounded border text-sm hover:bg-neutral-100">Hoy</button>
             <button type="button" onClick={() => { setFechaDesde(""); setFechaHasta(""); }} className="py-1.5 px-2 rounded border text-sm hover:bg-neutral-100">Todas</button>
           </div>
-          {userRole !== "REPARTIDOR" && usuarios.length > 0 && (
+          {userRole !== "REPARTIDOR" && repartidores.length > 0 && (
             <div className="flex items-center gap-1">
               <label className="text-sm">Repartidor:</label>
               <select value={repartidorFiltro} onChange={(e) => setRepartidorFiltro(e.target.value)} className="border rounded px-2 py-1.5 text-sm min-w-[120px]">
                 <option value="">Todos</option>
-                {usuarios.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
+                {repartidores.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
                 ))}
               </select>
             </div>
@@ -662,8 +775,8 @@ export default function PedidosPage() {
             <label className="text-sm">Cliente:</label>
             <input
               type="text"
-              value={clienteBusqueda}
-              onChange={(e) => setClienteBusqueda(e.target.value)}
+              value={clienteBusquedaInput}
+              onChange={(e) => setClienteBusquedaInput(e.target.value)}
               placeholder="Nombre o documento"
               className="border rounded px-2 py-1.5 text-sm w-40"
             />
@@ -676,13 +789,14 @@ export default function PedidosPage() {
           >
             Actualizar
           </button>
-          <button
+            <button
             type="button"
             onClick={() => {
               setFechaDesde(todayISO());
               setFechaHasta(todayISO());
               setRepartidorFiltro("");
               setEstadoFiltro("");
+              setClienteBusquedaInput("");
               setClienteBusqueda("");
             }}
             className="py-1.5 px-3 rounded border text-sm hover:bg-neutral-100"
@@ -723,6 +837,9 @@ export default function PedidosPage() {
         </div>
       )}
 
+      {pedidos.length === 100 && (
+        <p className="text-sm text-neutral-600 mb-2">Mostrando últimos 100 pedidos.</p>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse border border-neutral-300">
           <thead>

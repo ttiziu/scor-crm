@@ -12,9 +12,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
+  const PAGE_SIZE = 100;
   const productos = await prisma.producto.findMany({
     where: { tenantId: session.tenantId },
     orderBy: { name: "asc" },
+    take: PAGE_SIZE,
     select: {
       id: true,
       name: true,

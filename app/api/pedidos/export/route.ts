@@ -111,6 +111,7 @@ export async function GET(request: Request) {
         select: {
           cantidad: true,
           precioUnitario: true,
+          marca: { select: { name: true } },
         },
       },
     },
@@ -169,6 +170,7 @@ export async function GET(request: Request) {
     { wch: 14 },
     { wch: 12 },
     { wch: 12 },
+    { wch: 24 },
     { wch: 28 },
     { wch: 28 },
   ];
