@@ -46,9 +46,20 @@ export default function ClientesPage() {
   const [editDirId, setEditDirId] = useState<string | null>(null);
   const [editDirForm, setEditDirForm] = useState({ nombre: "", direccion: "", distrito: "", tipoValvula: "" });
   const [opcionesTipoValvula, setOpcionesTipoValvula] = useState<string[]>(["Normal", "Premium"]);
+  const [filtroNombre, setFiltroNombre] = useState("");
+  const [filtroDocumento, setFiltroDocumento] = useState("");
+  const [filtroTelefono, setFiltroTelefono] = useState("");
+  const [filtroNombreDebounced, setFiltroNombreDebounced] = useState("");
+  const [filtroDocumentoDebounced, setFiltroDocumentoDebounced] = useState("");
+  const [filtroTelefonoDebounced, setFiltroTelefonoDebounced] = useState("");
 
   function loadClientes() {
-    fetch("/api/clientes", { credentials: "include" })
+    const params = new URLSearchParams();
+    if (filtroNombreDebounced) params.set("nombre", filtroNombreDebounced);
+    if (filtroDocumentoDebounced) params.set("documento", filtroDocumentoDebounced);
+    if (filtroTelefonoDebounced) params.set("telefono", filtroTelefonoDebounced);
+    const url = `/api/clientes${params.toString() ? `?${params.toString()}` : ""}`;
+    fetch(url, { credentials: "include" })
       .then((res) => res.json())
       .then((data) => (Array.isArray(data) ? setClientes(data) : setClientes([])))
       .catch(() => setClientes([]));
@@ -89,7 +100,6 @@ export default function ClientesPage() {
           return;
         }
         if (data?.user) setAuthOk(true);
-        loadClientes();
       })
       .catch(() => router.replace("/login"))
       .finally(() => setLoading(false));
@@ -102,6 +112,20 @@ export default function ClientesPage() {
       .then((data) => (Array.isArray(data) && data.length > 0 ? setOpcionesTipoValvula(data) : null))
       .catch(() => {});
   }, [authOk]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setFiltroNombreDebounced(filtroNombre);
+      setFiltroDocumentoDebounced(filtroDocumento);
+      setFiltroTelefonoDebounced(filtroTelefono);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [filtroNombre, filtroDocumento, filtroTelefono]);
+
+  useEffect(() => {
+    if (!authOk) return;
+    loadClientes();
+  }, [authOk, filtroNombreDebounced, filtroDocumentoDebounced, filtroTelefonoDebounced]);
 
   useEffect(() => {
     if (editingId) loadClienteParaEditar(editingId);
@@ -286,6 +310,54 @@ export default function ClientesPage() {
         )}
       </div>
 
+      <div className="mb-4 rounded-md border bg-neutral-50/50 p-3">
+        <p className="text-sm font-medium text-neutral-700 mb-2">Filtros</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1">
+            <label className="text-sm">Nombre:</label>
+            <input
+              type="text"
+              value={filtroNombre}
+              onChange={(e) => setFiltroNombre(e.target.value)}
+              placeholder="Buscar por nombre"
+              className="border rounded px-2 py-1.5 text-sm w-40"
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <label className="text-sm">Documento:</label>
+            <input
+              type="text"
+              value={filtroDocumento}
+              onChange={(e) => setFiltroDocumento(e.target.value)}
+              placeholder="Buscar por documento"
+              className="border rounded px-2 py-1.5 text-sm w-36"
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <label className="text-sm">Teléfono:</label>
+            <input
+              type="text"
+              value={filtroTelefono}
+              onChange={(e) => setFiltroTelefono(e.target.value)}
+              placeholder="Buscar por teléfono"
+              className="border rounded px-2 py-1.5 text-sm w-36"
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setFiltroNombre("");
+              setFiltroDocumento("");
+              setFiltroTelefono("");
+            }}
+          >
+            Limpiar filtros
+          </Button>
+        </div>
+      </div>
+
       {editingId && (
         <div className="mb-6 p-4 border rounded bg-neutral-50 max-w-2xl">
           <h2 className="font-medium mb-3">Editar cliente</h2>
@@ -368,7 +440,9 @@ export default function ClientesPage() {
             {clientes.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                  No hay clientes
+                  {filtroNombreDebounced || filtroDocumentoDebounced || filtroTelefonoDebounced
+                    ? "No hay clientes con estos filtros"
+                    : "No hay clientes"}
                 </TableCell>
               </TableRow>
             ) : (

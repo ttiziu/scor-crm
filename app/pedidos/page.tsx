@@ -48,7 +48,7 @@ type Pedido = {
   items?: PedidoItem[];
 };
 
-type LineaForm = { productoId: ""; marcaId: ""; cantidad: "1"; precioUnitario: "" };
+type LineaForm = { productoId: string; marcaId: string; cantidad: string; precioUnitario: string };
 
 function todayISO() {
   const d = new Date();

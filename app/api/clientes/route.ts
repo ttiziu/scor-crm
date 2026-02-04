@@ -12,9 +12,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const nombreQuery = searchParams.get("nombre")?.trim();
+  const documentoQuery = searchParams.get("documento")?.trim();
+  const telefonoQuery = searchParams.get("telefono")?.trim();
+
   const PAGE_SIZE = 100;
   const clientes = await prisma.cliente.findMany({
-    where: { tenantId: session.tenantId },
+    where: {
+      tenantId: session.tenantId,
+      ...(nombreQuery && { name: { contains: nombreQuery, mode: "insensitive" as const } }),
+      ...(documentoQuery && { documento: { contains: documentoQuery, mode: "insensitive" as const } }),
+      ...(telefonoQuery && { telefono: { contains: telefonoQuery } }),
+    },
     orderBy: { createdAt: "desc" },
     take: PAGE_SIZE,
     select: {
