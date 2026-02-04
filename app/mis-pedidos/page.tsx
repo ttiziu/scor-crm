@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
+import { MapPin, Phone, Package, Truck, CheckCircle, XCircle, Copy, Check } from "lucide-react";
 
 function todayISO() {
   const d = new Date();
@@ -45,6 +46,7 @@ export default function MisPedidosPage() {
   const [authOk, setAuthOk] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [fechaFiltro, setFechaFiltro] = useState(() => todayISO());
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
@@ -121,6 +123,16 @@ export default function MisPedidosPage() {
     );
   }
 
+  async function copiarDireccion(pedidoId: string, direccion: string) {
+    try {
+      await navigator.clipboard.writeText(direccion);
+      setCopiedId(pedidoId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      // fallback si clipboard no está disponible
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -140,29 +152,58 @@ export default function MisPedidosPage() {
     return null;
   };
 
+  const creados = pedidos.filter((p) => p.estado === "CREATED").length;
+  const enRuta = pedidos.filter((p) => p.estado === "IN_ROUTE").length;
+  const entregados = pedidos.filter((p) => p.estado === "DELIVERED").length;
+  const cancelados = pedidos.filter((p) => p.estado === "CANCELLED").length;
+
   return (
     <div className="min-h-screen p-6">
-      <header className="flex justify-between items-center mb-6 flex-wrap gap-4">
-        <div className="flex items-center gap-4">
+      <header className="mb-6 space-y-4">
+        <div className="flex items-center gap-2">
           <Link href="/" className="text-sm underline">
             ← Volver
           </Link>
           <h1 className="text-xl font-semibold">Mis pedidos</h1>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <label className="text-sm">Ver pedidos del:</label>
-          <input
-            type="date"
-            value={fechaFiltro}
-            onChange={(e) => setFechaFiltro(e.target.value)}
-            className="border rounded px-3 py-2 text-sm [color-scheme:light]"
-          />
-          <Button type="button" variant="outline" size="sm" onClick={() => setFechaFiltro(todayISO())}>
-            Hoy
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={loadPedidos} title="Actualizar lista (por si cancelaron un pedido)">
-            Actualizar
-          </Button>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 rounded-md border bg-sky-50 px-2 py-1.5 border-sky-200">
+              <Package className="size-3.5 text-sky-600" />
+              <span className="text-xs font-medium text-sky-800">Pendientes</span>
+              <span className="text-sm font-semibold text-sky-700">{creados}</span>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-md border bg-amber-50 px-2 py-1.5 border-amber-200">
+              <Truck className="size-3.5 text-amber-600" />
+              <span className="text-xs font-medium text-amber-800">En ruta</span>
+              <span className="text-sm font-semibold text-amber-700">{enRuta}</span>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-md border bg-green-50 px-2 py-1.5 border-green-200">
+              <CheckCircle className="size-3.5 text-green-600" />
+              <span className="text-xs font-medium text-green-800">Entregados</span>
+              <span className="text-sm font-semibold text-green-700">{entregados}</span>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-md border bg-red-50 px-2 py-1.5 border-red-200">
+              <XCircle className="size-3.5 text-red-600" />
+              <span className="text-xs font-medium text-red-800">Cancelados</span>
+              <span className="text-sm font-semibold text-red-700">{cancelados}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap ml-auto">
+            <label className="text-sm">Ver pedidos del:</label>
+            <input
+              type="date"
+              value={fechaFiltro}
+              onChange={(e) => setFechaFiltro(e.target.value)}
+              className="border rounded px-3 py-2 text-sm [color-scheme:light]"
+            />
+            <Button type="button" variant="outline" size="sm" onClick={() => setFechaFiltro(todayISO())}>
+              Hoy
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={loadPedidos} title="Actualizar lista (por si cancelaron un pedido)">
+              Actualizar
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -179,12 +220,32 @@ export default function MisPedidosPage() {
                 <div>
                   <p className="font-medium">{p.cliente.name}</p>
                   {direccionEntrega(p) && (
-                    <p className="text-sm text-neutral-600">
-                      📍 {direccionEntrega(p)}
-                    </p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-sm text-neutral-600 flex items-center gap-1.5 min-w-0">
+                        <MapPin className="size-4 shrink-0 text-neutral-500" />
+                        <span className="break-words">{direccionEntrega(p)}</span>
+                      </p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => copiarDireccion(p.id, direccionEntrega(p) ?? "")}
+                        title="Copiar dirección (pegar en Google Maps)"
+                        className="shrink-0 text-neutral-500 hover:text-neutral-700"
+                      >
+                        {copiedId === p.id ? (
+                          <Check className="size-4 text-green-600" />
+                        ) : (
+                          <Copy className="size-4" />
+                        )}
+                      </Button>
+                    </div>
                   )}
                   {p.cliente.telefono && (
-                    <p className="text-sm">📞 {p.cliente.telefono}</p>
+                    <p className="text-sm flex items-center gap-1.5">
+                      <Phone className="size-4 shrink-0 text-neutral-500" />
+                      {p.cliente.telefono}
+                    </p>
                   )}
                 </div>
                 <div className="text-right">

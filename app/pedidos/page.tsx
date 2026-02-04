@@ -6,6 +6,11 @@ import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
 import { AlertCircleIcon } from "lucide-react";
@@ -97,6 +102,7 @@ export default function PedidosPage() {
   const [clienteBusquedaInput, setClienteBusquedaInput] = useState("");
   const [clienteBusqueda, setClienteBusqueda] = useState("");
   const [estadoFiltro, setEstadoFiltro] = useState("");
+  const [formaPagoFiltro, setFormaPagoFiltro] = useState("");
   const [cancelando, setCancelando] = useState<{ id: string; motivo: string } | null>(null);
   const [updatingEstadoId, setUpdatingEstadoId] = useState<string | null>(null);
   const [exportando, setExportando] = useState(false);
@@ -111,6 +117,7 @@ export default function PedidosPage() {
     }
     if (repartidorFiltro) params.set("repartidorId", repartidorFiltro);
     if (estadoFiltro) params.set("estado", estadoFiltro);
+    if (formaPagoFiltro) params.set("formaPago", formaPagoFiltro);
     if (clienteBusqueda.trim()) params.set("clienteQuery", clienteBusqueda.trim());
     const url = `/api/pedidos?${params.toString()}`;
     fetch(url, { credentials: "include" })
@@ -283,7 +290,7 @@ export default function PedidosPage() {
 
   useEffect(() => {
     if (authOk) loadPedidos();
-  }, [fechaDesde, fechaHasta, repartidorFiltro, estadoFiltro, clienteBusqueda]);
+  }, [fechaDesde, fechaHasta, repartidorFiltro, estadoFiltro, formaPagoFiltro, clienteBusqueda]);
 
   // Actualizar lista al volver a la pestaña (p. ej. cuando el repartidor marca En ruta/Entregado)
   useEffect(() => {
@@ -291,14 +298,14 @@ export default function PedidosPage() {
     const onFocus = () => loadPedidos();
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [authOk, fechaDesde, fechaHasta, repartidorFiltro, estadoFiltro, clienteBusqueda]);
+  }, [authOk, fechaDesde, fechaHasta, repartidorFiltro, estadoFiltro, formaPagoFiltro, clienteBusqueda]);
 
   // Polling cada 15 s para ver enseguida cuando el repartidor marca En ruta/Entregado
   useEffect(() => {
     if (!authOk) return;
     const id = setInterval(loadPedidos, 15_000);
     return () => clearInterval(id);
-  }, [authOk, fechaDesde, fechaHasta, repartidorFiltro, estadoFiltro, clienteBusqueda]);
+  }, [authOk, fechaDesde, fechaHasta, repartidorFiltro, estadoFiltro, formaPagoFiltro, clienteBusqueda]);
 
   async function cancelarPedido() {
     if (!cancelando) return;
@@ -351,6 +358,7 @@ export default function PedidosPage() {
     }
     if (repartidorFiltro) params.set("repartidorId", repartidorFiltro);
     if (estadoFiltro) params.set("estado", estadoFiltro);
+    if (formaPagoFiltro) params.set("formaPago", formaPagoFiltro);
     if (clienteBusqueda.trim()) params.set("clienteQuery", clienteBusqueda.trim());
     setExportando(true);
     try {
@@ -480,7 +488,8 @@ export default function PedidosPage() {
         (acc, i) => acc + Number(i.precioUnitario) * i.cantidad,
         0
       );
-      return `${p.items.length} líneas · S/ ${total.toFixed(2)}`;
+      const lineLabel = p.items.length === 1 ? "línea" : "líneas";
+      return `${p.items.length} ${lineLabel} · S/ ${total.toFixed(2)}`;
     }
     return p.cantidad != null ? `Cantidad: ${p.cantidad}` : "—";
   }
@@ -783,6 +792,15 @@ export default function PedidosPage() {
             </select>
           </div>
           <div className="flex items-center gap-1">
+            <label className="text-sm">Pago:</label>
+            <select value={formaPagoFiltro} onChange={(e) => setFormaPagoFiltro(e.target.value)} className="border rounded px-2 py-1.5 text-sm min-w-[120px]">
+              <option value="">Todos</option>
+              {formasPago.map((fp) => (
+                <option key={fp.value} value={fp.value}>{fp.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-1">
             <label className="text-sm">Cliente:</label>
             <input
               type="text"
@@ -810,6 +828,7 @@ export default function PedidosPage() {
               setFechaHasta(todayISO());
               setRepartidorFiltro("");
               setEstadoFiltro("");
+              setFormaPagoFiltro("");
               setClienteBusquedaInput("");
               setClienteBusqueda("");
             }}
@@ -880,7 +899,7 @@ export default function PedidosPage() {
             {pedidos.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
-                  {(fechaDesde && fechaHasta) || repartidorFiltro || estadoFiltro || clienteBusqueda.trim() ? "No hay pedidos con estos filtros" : "No hay pedidos"}
+                  {(fechaDesde && fechaHasta) || repartidorFiltro || estadoFiltro || formaPagoFiltro || clienteBusqueda.trim() ? "No hay pedidos con estos filtros" : "No hay pedidos"}
                 </TableCell>
               </TableRow>
             ) : (
@@ -894,7 +913,45 @@ export default function PedidosPage() {
                       loading={updatingEstadoId === p.id}
                     />
                   </TableCell>
-                  <TableCell>{itemsSummary(p)}</TableCell>
+                  <TableCell>
+                    {p.items && p.items.length > 0 ? (
+                      <HoverCard openDelay={200} closeDelay={100}>
+                        <HoverCardTrigger asChild>
+                          <button
+                            type="button"
+                            className="text-left text-sm underline decoration-dotted underline-offset-2 hover:no-underline cursor-default"
+                          >
+                            {itemsSummary(p)}
+                          </button>
+                        </HoverCardTrigger>
+                        <HoverCardContent side="top" align="start" className="w-72">
+                          <div className="flex flex-col gap-2">
+                            <h4 className="font-medium text-sm">Productos en el pedido</h4>
+                            <ul className="text-sm space-y-1.5">
+                              {p.items.map((i) => {
+                                const subtotal = Number(i.precioUnitario) * i.cantidad;
+                                const marcaName = i.marca?.name;
+                                return (
+                                  <li key={i.id} className="flex justify-between gap-2">
+                                    <span>
+                                      {i.cantidad}× {i.producto.name}
+                                      {marcaName ? ` (${marcaName})` : ""}
+                                    </span>
+                                    <span className="text-muted-foreground shrink-0">S/ {subtotal.toFixed(2)}</span>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                            <p className="text-sm font-medium border-t pt-2 mt-1">
+                              Total: S/ {p.items.reduce((acc, i) => acc + Number(i.precioUnitario) * i.cantidad, 0).toFixed(2)}
+                            </p>
+                          </div>
+                        </HoverCardContent>
+                      </HoverCard>
+                    ) : (
+                      itemsSummary(p)
+                    )}
+                  </TableCell>
                   <TableCell>{formatDate(p.fechaPedido)}</TableCell>
                   <TableCell>{formatDate(p.fechaProgramada)}</TableCell>
                   <TableCell>{p.repartidor?.name ?? "—"}</TableCell>

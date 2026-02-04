@@ -5,9 +5,14 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/get-session";
 
 const ESTADOS_VALIDOS = ["CREATED", "IN_ROUTE", "DELIVERED", "CANCELLED"] as const;
+const FORMAS_PAGO_VALIDAS = ["YAPE", "PLIN", "TRANSFERENCIA", "EFECTIVO", "TARJETA"] as const;
 
 function isEstadoValido(estado: string | null): estado is (typeof ESTADOS_VALIDOS)[number] {
   return estado !== null && (ESTADOS_VALIDOS as readonly string[]).includes(estado);
+}
+
+function isFormaPagoValida(formaPago: string | null): formaPago is (typeof FORMAS_PAGO_VALIDAS)[number] {
+  return formaPago !== null && (FORMAS_PAGO_VALIDAS as readonly string[]).includes(formaPago);
 }
 
 function estadoLabel(estado: string): string {
@@ -48,6 +53,7 @@ export async function GET(request: Request) {
   const fechaDesdeParam = searchParams.get("fechaDesde");
   const fechaHastaParam = searchParams.get("fechaHasta");
   const repartidorIdParam = searchParams.get("repartidorId");
+  const formaPagoParam = searchParams.get("formaPago");
 
   const where: Prisma.PedidoWhereInput = {
     tenantId: session.tenantId,
@@ -73,6 +79,7 @@ export async function GET(request: Request) {
     where.clienteId = ids.length === 0 ? { in: [] } : { in: ids };
   }
   if (isEstadoValido(estadoParam)) where.estado = estadoParam;
+  if (isFormaPagoValida(formaPagoParam)) where.formaPago = formaPagoParam;
   const dateOnlyRe = /^\d{4}-\d{2}-\d{2}$/;
   if (fechaDesdeParam && dateOnlyRe.test(fechaDesdeParam) && fechaHastaParam && dateOnlyRe.test(fechaHastaParam)) {
     const start = new Date(fechaDesdeParam + "T00:00:00");

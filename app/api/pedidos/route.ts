@@ -5,9 +5,14 @@ import { getSession } from "@/lib/auth/get-session";
 import { createPedidoSchema } from "@/lib/validations/pedidos";
 
 const ESTADOS_VALIDOS = ["CREATED", "IN_ROUTE", "DELIVERED", "CANCELLED"] as const;
+const FORMAS_PAGO_VALIDAS = ["YAPE", "PLIN", "TRANSFERENCIA", "EFECTIVO", "TARJETA"] as const;
 
 function isEstadoValido(estado: string | null): estado is (typeof ESTADOS_VALIDOS)[number] {
   return estado !== null && (ESTADOS_VALIDOS as readonly string[]).includes(estado);
+}
+
+function isFormaPagoValida(formaPago: string | null): formaPago is (typeof FORMAS_PAGO_VALIDAS)[number] {
+  return formaPago !== null && (FORMAS_PAGO_VALIDAS as readonly string[]).includes(formaPago);
 }
 
 export async function GET(request: Request) {
@@ -24,6 +29,7 @@ export async function GET(request: Request) {
   const fechaDesdeParam = searchParams.get("fechaDesde"); // YYYY-MM-DD: inicio de rango
   const fechaHastaParam = searchParams.get("fechaHasta"); // YYYY-MM-DD: fin de rango
   const repartidorIdParam = searchParams.get("repartidorId"); // solo para ADMIN/OPERADOR
+  const formaPagoParam = searchParams.get("formaPago");
 
   const where: Prisma.PedidoWhereInput = {
     tenantId: session.tenantId,
@@ -49,6 +55,7 @@ export async function GET(request: Request) {
     where.clienteId = ids.length === 0 ? { in: [] } : { in: ids };
   }
   if (isEstadoValido(estadoParam)) where.estado = estadoParam;
+  if (isFormaPagoValida(formaPagoParam)) where.formaPago = formaPagoParam;
   const dateOnlyRe = /^\d{4}-\d{2}-\d{2}$/;
   if (fechaDesdeParam && dateOnlyRe.test(fechaDesdeParam) && fechaHastaParam && dateOnlyRe.test(fechaHastaParam)) {
     const start = new Date(fechaDesdeParam + "T00:00:00");
