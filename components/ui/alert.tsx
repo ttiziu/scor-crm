@@ -31,7 +31,6 @@ function Alert({
   variant,
   ...props
 }: React.ComponentProps<"div"> & VariantProps<typeof alertVariants>) {
-  const { onDrag, onDragStart, onDragEnd, ...safeProps } = props
   return (
     <motion.div
       data-slot="alert"
@@ -40,7 +39,7 @@ function Alert({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
       className={cn(alertVariants({ variant }), className)}
-      {...safeProps}
+      {...(props as React.ComponentProps<typeof motion.div>)}
     />
   )
 }
