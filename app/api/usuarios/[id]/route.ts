@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import * as bcrypt from "bcryptjs";
+import type { Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/get-session";
 import { updateUsuarioSchema } from "@/lib/validations/usuarios";
@@ -71,7 +72,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       }
     }
 
-    const updateData: { name?: string; username?: string; role?: string; passwordHash?: string } = {};
+    const updateData: { name?: string; username?: string; role?: Role; passwordHash?: string } = {};
     if (data.name !== undefined) updateData.name = data.name;
     if (data.username !== undefined) updateData.username = data.username;
     if (data.role !== undefined) updateData.role = data.role;
