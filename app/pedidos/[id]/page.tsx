@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
-import { AlertCircleIcon } from "lucide-react";
+import { AlertCircleIcon, ArrowLeft } from "lucide-react";
 
 type ClienteDireccion = { id: string; nombre: string; direccion: string; distrito: string | null };
 type Producto = { id: string; name: string };
@@ -273,8 +273,9 @@ export default function PedidoDetallePage() {
     <div className="min-h-screen p-6">
       <header className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
-          <Link href="/pedidos" className="text-sm underline">
-            ← Volver a Pedidos
+          <Link href="/pedidos" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="size-4" />
+            Regresar a Pedidos
           </Link>
           <h1 className="text-xl font-semibold">Pedido · {pedido.cliente?.name ?? "—"}</h1>
         </div>

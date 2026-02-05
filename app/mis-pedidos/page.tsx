@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
-import { MapPin, Phone, Package, Truck, CheckCircle, XCircle, Copy, Check } from "lucide-react";
+import { MapPin, Phone, Package, Truck, CheckCircle, XCircle, Copy, Check, ArrowLeft } from "lucide-react";
 
 function todayISO() {
   const d = new Date();
@@ -161,8 +161,9 @@ export default function MisPedidosPage() {
     <div className="min-h-screen p-4 sm:p-6">
       <header className="mb-4 sm:mb-6 space-y-4">
         <div className="flex items-center gap-2">
-          <Link href="/" className="text-sm underline">
-            ← Volver
+          <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="size-4" />
+            Regresar
           </Link>
           <h1 className="text-xl font-semibold">Mis pedidos</h1>
         </div>

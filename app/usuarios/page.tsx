@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircleIcon } from "lucide-react";
+import { AlertCircleIcon, ArrowLeft } from "lucide-react";
 
 type Usuario = {
   id: string;
@@ -154,7 +154,10 @@ export default function UsuariosPage() {
   if (!isAdmin) {
     return (
       <div className="min-h-screen p-6">
-        <Link href="/" className="text-sm underline block mb-4">← Volver</Link>
+        <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-4">
+        <ArrowLeft className="size-4" />
+        Regresar
+      </Link>
         <p className="text-red-600">No tienes permiso para ver esta página.</p>
       </div>
     );
@@ -164,8 +167,9 @@ export default function UsuariosPage() {
     <div className="min-h-screen p-6">
       <header className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
-          <Link href="/" className="text-sm underline">
-            ← Volver
+          <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="size-4" />
+            Regresar
           </Link>
           <h1 className="text-xl font-semibold">Usuarios</h1>
         </div>

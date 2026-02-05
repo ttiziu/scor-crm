@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/hover-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
-import { AlertCircleIcon } from "lucide-react";
+import { AlertCircleIcon, ArrowLeft } from "lucide-react";
 
 type Cliente = { id: string; name: string; documento?: string | null };
 type ClienteDireccion = { id: string; nombre: string; direccion: string; distrito: string | null };
@@ -507,8 +507,9 @@ export default function PedidosPage() {
     <div className="min-h-screen p-6">
       <header className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
-          <Link href="/" className="text-sm underline">
-            ← Volver
+          <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="size-4" />
+            Regresar
           </Link>
           <h1 className="text-xl font-semibold">Pedidos</h1>
         </div>
