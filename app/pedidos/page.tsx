@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { Suspense, useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -58,7 +58,7 @@ function todayISO() {
   return `${year}-${month}-${day}`;
 }
 
-export default function PedidosPage() {
+function PedidosContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -1155,5 +1155,13 @@ export default function PedidosPage() {
         </Table>
       </div>
     </div>
+  );
+}
+
+export default function PedidosPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center"><Spinner /></div>}>
+      <PedidosContent />
+    </Suspense>
   );
 }
