@@ -1,5 +1,5 @@
 const COOKIE_NAME = "scor_session";
-const COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 7; // 7 días
+const COOKIE_MAX_AGE_SEC = 60 * 60 * 24; // 1 día
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 export function getSessionCookie(request: Request): string | null {

@@ -1,6 +1,6 @@
 import * as jose from "jose";
 
-const COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 7; // 7 días
+const COOKIE_MAX_AGE_SEC = 60 * 60 * 24; // 1 día
 
 export type JWTPayload = {
   userId: string;
