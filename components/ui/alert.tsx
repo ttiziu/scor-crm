@@ -30,7 +30,7 @@ function Alert({
   className,
   variant,
   ...props
-}: React.ComponentProps<"div"> & VariantProps<typeof alertVariants>) {
+}: Omit<React.ComponentProps<"div">, "onDrag"> & VariantProps<typeof alertVariants>) {
   return (
     <motion.div
       data-slot="alert"
