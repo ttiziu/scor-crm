@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircleIcon, ArrowLeft } from "lucide-react";
+import { AlertCircleIcon, Pencil, Trash2 } from "lucide-react";
 
 type Usuario = {
   id: string;
@@ -154,10 +154,6 @@ export default function UsuariosPage() {
   if (!isAdmin) {
     return (
       <div className="min-h-screen p-6">
-        <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors mb-4">
-        <ArrowLeft className="size-4" />
-        Regresar
-      </Link>
         <p className="text-red-600">No tienes permiso para ver esta página.</p>
       </div>
     );
@@ -165,87 +161,104 @@ export default function UsuariosPage() {
 
   return (
     <div className="min-h-screen p-6">
-      <header className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="size-4" />
-            Regresar
-          </Link>
-          <h1 className="text-xl font-semibold">Usuarios</h1>
-        </div>
-      </header>
-
-      <div className="mb-6">
+      <header className="flex flex-wrap justify-between items-center gap-4 mb-6">
+        <h1 className="text-xl font-semibold">Usuarios</h1>
         <Button type="button" size="sm" onClick={() => setFormOpen(!formOpen)}>
           {formOpen ? "Cerrar formulario" : "Nuevo usuario"}
         </Button>
+      </header>
+
+      <div className="mb-6">
         {formOpen && (
-          <form onSubmit={handleSubmit} className="mt-4 p-4 border rounded max-w-md space-y-3">
-            <input
-              placeholder="Usuario * (nombre para iniciar sesión)"
-              value={form.username}
-              onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-              required
-              className="w-full border rounded px-3 py-2"
-            />
-            <input
-              type="email"
-              placeholder="Email (opcional)"
-              value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              className="w-full border rounded px-3 py-2"
-            />
-            <div className="flex gap-2 items-center">
-              <input
-                type={showPassword ? "text" : "password"}
-                placeholder="Contraseña * (mín. 6)"
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                required
-                minLength={6}
-                className="flex-1 border rounded px-3 py-2"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowPassword((v) => !v)}
-                title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                className="whitespace-nowrap"
-              >
-                {showPassword ? "Ocultar" : "Mostrar"}
-              </Button>
+          <form onSubmit={handleSubmit} className="mt-4 w-full">
+            <div className="rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+              <div className="p-6 space-y-5">
+                <h2 className="text-lg font-semibold text-neutral-900 mb-5">Nuevo usuario</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Usuario *</label>
+                    <input
+                      placeholder="Nombre para iniciar sesión"
+                      value={form.username}
+                      onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                      required
+                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Email</label>
+                    <input
+                      type="email"
+                      placeholder="correo@ejemplo.com (opcional)"
+                      value={form.email}
+                      onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Contraseña *</label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Mín. 6 caracteres"
+                        value={form.password}
+                        onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                        required
+                        minLength={6}
+                        className="flex-1 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowPassword((v) => !v)}
+                        title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                        className="shrink-0 rounded-lg"
+                      >
+                        {showPassword ? "Ocultar" : "Mostrar"}
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Nombre *</label>
+                    <input
+                      placeholder="Nombre completo"
+                      value={form.name}
+                      onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                      required
+                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1.5">Rol</label>
+                  <select
+                    value={form.role}
+                    onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+                    className="w-full max-w-xs rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                  >
+                    <option value="OPERADOR">Operador</option>
+                    <option value="REPARTIDOR">Repartidor</option>
+                    <option value="ADMIN">Administrador</option>
+                  </select>
+                </div>
+                {error && (
+                  <Alert variant="destructive" className="rounded-lg">
+                    <AlertCircleIcon />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                <div className="pt-1">
+                  <Button type="submit" disabled={saving} size="sm" className="rounded-lg px-5">
+                    {saving && <Spinner data-icon="inline-start" />}
+                    {saving ? "Guardando…" : "Guardar"}
+                  </Button>
+                </div>
+              </div>
             </div>
-            <input
-              placeholder="Nombre *"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              required
-              className="w-full border rounded px-3 py-2"
-            />
-            <div>
-              <label className="block text-sm mb-1">Rol</label>
-              <select
-                value={form.role}
-                onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-                className="w-full border rounded px-3 py-2"
-              >
-                <option value="OPERADOR">Operador</option>
-                <option value="REPARTIDOR">Repartidor</option>
-                <option value="ADMIN">Administrador</option>
-              </select>
-            </div>
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircleIcon />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <Button type="submit" disabled={saving} size="sm">
-              {saving && <Spinner data-icon="inline-start" />}
-              {saving ? "Guardando…" : "Guardar"}
-            </Button>
           </form>
         )}
       </div>
@@ -328,8 +341,28 @@ export default function UsuariosPage() {
                       <TableCell>{u.name}</TableCell>
                       <TableCell>{u.role}</TableCell>
                       <TableCell>
-                        <Button type="button" variant="link" size="sm" onClick={() => { setEditingId(u.id); setEditForm({ username: u.username ?? "", name: u.name, role: u.role, password: "" }); }} className="mr-2">Editar</Button>
-                        <Button type="button" variant="link" size="sm" onClick={() => handleDelete(u.id)} className="text-red-600">Eliminar</Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100"
+                            onClick={() => { setEditingId(u.id); setEditForm({ username: u.username ?? "", name: u.name, role: u.role, password: "" }); }}
+                            title="Editar"
+                          >
+                            <Pencil className="size-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleDelete(u.id)}
+                            title="Eliminar"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </>
                   )}

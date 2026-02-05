@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircleIcon, ArrowLeft } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 
 type Producto = {
   id: string;
@@ -22,7 +22,6 @@ export default function ProductosPage() {
   const [authOk, setAuthOk] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
   const [form, setForm] = useState({ name: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -57,50 +56,60 @@ export default function ProductosPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
+    const nameTrim = form.name.trim();
+    if (!nameTrim) {
+      toast.error("El nombre del producto es requerido");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/productos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name: form.name.trim() }),
+        body: JSON.stringify({ name: nameTrim }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "Error al crear");
+        toast.error(data.error ?? "Error al crear producto");
         return;
       }
+      toast.success("Producto creado");
       setForm({ name: "" });
       setFormOpen(false);
       loadProductos();
     } catch {
-      setError("Error de conexión");
+      toast.error("Error de conexión");
     } finally {
       setSaving(false);
     }
   }
 
   async function handleUpdate(id: string) {
-    setError("");
+    const nameTrim = editName.trim();
+    if (!nameTrim) {
+      toast.error("El nombre del producto es requerido");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/productos/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name: editName.trim() }),
+        body: JSON.stringify({ name: nameTrim }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "Error al actualizar");
+        toast.error(data.error ?? "Error al actualizar");
         return;
       }
+      toast.success("Producto actualizado");
       setEditingId(null);
       setEditName("");
       loadProductos();
     } catch {
-      setError("Error de conexión");
+      toast.error("Error de conexión");
     } finally {
       setSaving(false);
     }
@@ -117,7 +126,13 @@ export default function ProductosPage() {
       if (res.ok) {
         setEditingId(null);
         loadProductos();
+        toast.success("Producto eliminado");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "No se pudo eliminar");
       }
+    } catch {
+      toast.error("Error de conexión");
     } finally {
       setSaving(false);
     }
@@ -134,45 +149,39 @@ export default function ProductosPage() {
 
   return (
     <div className="min-h-screen p-6">
-      <header className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="size-4" />
-            Regresar
-          </Link>
-          <h1 className="text-xl font-semibold">Productos</h1>
-        </div>
+      <header className="flex flex-wrap justify-between items-center gap-4 mb-6">
+        <h1 className="text-xl font-semibold">Productos</h1>
+        <Button type="button" size="sm" onClick={() => setFormOpen(!formOpen)}>
+          {formOpen ? "Cerrar formulario" : "Nuevo producto"}
+        </Button>
       </header>
 
       <div className="mb-6">
-        <button
-          type="button"
-          onClick={() => setFormOpen(!formOpen)}
-          className="py-2 px-4 rounded bg-foreground text-background text-sm"
-        >
-          {formOpen ? "Cerrar formulario" : "Nuevo producto"}
-        </button>
         {formOpen && (
-          <form onSubmit={handleSubmit} className="mt-4 p-4 border rounded max-w-md space-y-3">
-            <input
-              placeholder="Nombre del producto *"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              required
-              className="w-full border rounded px-3 py-2"
-            />
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircleIcon />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <Button type="submit" disabled={saving} size="sm">
-              {saving && <Spinner data-icon="inline-start" />}
-              {saving ? "Guardando…" : "Guardar"}
-            </Button>
-          </form>
+          <div className="mt-4 max-w-2xl">
+            <div className="rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+              <div className="p-6">
+                <h2 className="text-lg font-semibold text-neutral-900 mb-5">Nuevo producto</h2>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Nombre *</label>
+                    <input
+                      placeholder="Ej. Balón 10 kg"
+                      value={form.name}
+                      onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                    />
+                  </div>
+                  <div className="pt-1">
+                    <Button type="submit" disabled={saving} size="sm" className="rounded-lg px-5">
+                      {saving && <Spinner data-icon="inline-start" />}
+                      {saving ? "Guardando…" : "Guardar"}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
@@ -232,27 +241,29 @@ export default function ProductosPage() {
                         </Button>
                       </>
                     ) : (
-                      <>
+                      <div className="flex items-center gap-1">
                         <Button
                           type="button"
-                          variant="link"
-                          size="sm"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100"
                           onClick={() => { setEditingId(p.id); setEditName(p.name); }}
-                          className="mr-2"
+                          title="Editar"
                         >
-                          Editar
+                          <Pencil className="size-4" />
                         </Button>
                         <Button
                           type="button"
-                          variant="link"
-                          size="sm"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
                           onClick={() => handleDelete(p.id)}
                           disabled={saving}
-                          className="text-red-600"
+                          title="Eliminar"
                         >
-                          Eliminar
+                          {saving ? <Spinner className="size-4" /> : <Trash2 className="size-4" />}
                         </Button>
-                      </>
+                      </div>
                     )}
                   </TableCell>
                 </TableRow>

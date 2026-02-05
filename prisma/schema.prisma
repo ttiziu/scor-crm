@@ -137,6 +137,7 @@ model Pedido {
   fechaProgramada   DateTime?
   repartidorId      String?
   repartidor        User?        @relation("RepartidorPedidos", fields: [repartidorId], references: [id], onDelete: SetNull)
+  asignadoEn        DateTime?    // hora en que se asignó al repartidor
   formaPago         FormaPago?
   efectivoCon       Decimal?      @db.Decimal(10, 2)
   motivoCancelacion String?

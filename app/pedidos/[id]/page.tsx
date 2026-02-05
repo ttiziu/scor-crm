@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
-import { AlertCircleIcon, ArrowLeft } from "lucide-react";
+import { AlertCircleIcon } from "lucide-react";
 
 type ClienteDireccion = { id: string; nombre: string; direccion: string; distrito: string | null };
 type Producto = { id: string; name: string };
@@ -198,6 +199,7 @@ export default function PedidoDetallePage() {
     );
     if (lineasValidas.length === 0) {
       setError("Debe haber al menos una línea con producto, cantidad y precio.");
+      toast.error("Debe haber al menos una línea con producto, cantidad y precio.");
       setSaving(false);
       return;
     }
@@ -225,32 +227,18 @@ export default function PedidoDetallePage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "Error al guardar");
+        const msg = data.error ?? "Error al guardar";
+        setError(msg);
+        toast.error(msg);
         setSaving(false);
         return;
       }
-      setPedido(data);
-      setForm((f) => ({
-        ...f,
-        clienteDireccionId: data.clienteDireccionId ?? "",
-        fechaProgramada: data.fechaProgramada ? data.fechaProgramada.slice(0, 10) : todayISO(),
-        repartidorId: data.repartidorId ?? "",
-        formaPago: data.formaPago ?? "",
-        efectivoCon: data.efectivoCon != null ? String(data.efectivoCon) : "",
-        observaciones: data.observaciones ?? "",
-        estado: data.estado ?? "",
-        motivoCancelacion: data.motivoCancelacion ?? "",
-        lineas:
-          data.items?.map((i: { id: string; productoId: string; marcaId?: string | null; cantidad: number; precioUnitario: number }) => ({
-            id: i.id,
-            productoId: i.productoId,
-            marcaId: i.marcaId ?? "",
-            cantidad: String(i.cantidad),
-            precioUnitario: String(i.precioUnitario),
-          })) ?? [],
-      }));
+      toast.success("Cambios aplicados");
+      router.push("/pedidos");
+      return;
     } catch {
       setError("Error de conexión");
+      toast.error("Error de conexión");
     } finally {
       setSaving(false);
     }
@@ -272,23 +260,21 @@ export default function PedidoDetallePage() {
   return (
     <div className="min-h-screen p-6">
       <header className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
-          <Link href="/pedidos" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="size-4" />
-            Regresar a Pedidos
-          </Link>
-          <h1 className="text-xl font-semibold">Pedido · {pedido.cliente?.name ?? "—"}</h1>
-        </div>
+        <h1 className="text-xl font-semibold">Pedido · {pedido.cliente?.name ?? "—"}</h1>
       </header>
 
-      <div className="max-w-2xl space-y-6">
-        <section className="border border-neutral-300 rounded p-4 bg-neutral-50/50">
+      <div className="max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <section className="border border-neutral-300 rounded-lg p-4 bg-neutral-50/50 h-fit">
           <h2 className="font-medium mb-3">Datos del pedido</h2>
           <dl className="grid grid-cols-2 gap-2 text-sm">
             <dt className="text-neutral-600">Cliente</dt>
             <dd>{pedido.cliente?.name ?? "—"} {pedido.cliente?.documento ? `(${pedido.cliente.documento})` : ""}</dd>
-            <dt className="text-neutral-600">Teléfono</dt>
-            <dd>{pedido.cliente?.telefono ?? "—"}</dd>
+            {userRole !== "REPARTIDOR" && (
+              <>
+                <dt className="text-neutral-600">Teléfono</dt>
+                <dd>{pedido.cliente?.telefono ?? "—"}</dd>
+              </>
+            )}
             <dt className="text-neutral-600">Dirección de entrega</dt>
             <dd>
               {pedido.clienteDireccion
@@ -306,7 +292,7 @@ export default function PedidoDetallePage() {
           </dl>
         </section>
 
-        <form onSubmit={handleSubmit} className="border border-neutral-300 rounded p-4 space-y-4">
+        <form onSubmit={handleSubmit} className="border border-neutral-300 rounded-lg p-4 space-y-4 bg-white">
           <h2 className="font-medium">Editar pedido</h2>
 
           <div>

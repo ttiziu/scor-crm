@@ -3,8 +3,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import {
   HoverCard,
@@ -13,9 +13,9 @@ import {
 } from "@/components/ui/hover-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
-import { AlertCircleIcon, ArrowLeft } from "lucide-react";
+import { Pencil, Truck, CheckCircle, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
 
-type Cliente = { id: string; name: string; documento?: string | null };
+type Cliente = { id: string; name: string; documento?: string | null; telefono?: string | null };
 type ClienteDireccion = { id: string; nombre: string; direccion: string; distrito: string | null };
 type ClienteDetalle = { direccion: string | null; distrito: string | null; direcciones: ClienteDireccion[] };
 type Producto = { id: string; name: string };
@@ -72,7 +72,6 @@ export default function PedidosPage() {
   const [authOk, setAuthOk] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
   const [form, setForm] = useState({
     clienteId: "",
     clienteDireccionId: "",
@@ -107,10 +106,20 @@ export default function PedidosPage() {
   const [updatingEstadoId, setUpdatingEstadoId] = useState<string | null>(null);
   const [exportando, setExportando] = useState(false);
   const [formasPago, setFormasPago] = useState<{ value: string; label: string }[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPedidos, setTotalPedidos] = useState(0);
+  const PEDIDOS_PAGE_SIZE = 100;
   const clienteInputRef = useRef<HTMLInputElement>(null);
+  const [clientePhoneSearch, setClientePhoneSearch] = useState("");
+  const [clientePhoneDropdownOpen, setClientePhoneDropdownOpen] = useState(false);
+  const [phoneSearchResults, setPhoneSearchResults] = useState<Cliente[]>([]);
+  const [phoneSearching, setPhoneSearching] = useState(false);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
 
   function loadPedidos() {
     const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("pageSize", String(PEDIDOS_PAGE_SIZE));
     if (fechaDesde && fechaHasta) {
       params.set("fechaDesde", fechaDesde);
       params.set("fechaHasta", fechaHasta);
@@ -122,8 +131,19 @@ export default function PedidosPage() {
     const url = `/api/pedidos?${params.toString()}`;
     fetch(url, { credentials: "include" })
       .then((res) => res.json())
-      .then((data) => (Array.isArray(data) ? setPedidos(data) : setPedidos([])))
-      .catch(() => setPedidos([]));
+      .then((data) => {
+        if (data?.pedidos != null) {
+          setPedidos(Array.isArray(data.pedidos) ? data.pedidos : []);
+          setTotalPedidos(Number(data.total) ?? 0);
+        } else {
+          setPedidos(Array.isArray(data) ? data : []);
+          setTotalPedidos(0);
+        }
+      })
+      .catch(() => {
+        setPedidos([]);
+        setTotalPedidos(0);
+      });
   }
 
   function loadClientes() {
@@ -274,6 +294,28 @@ export default function PedidosPage() {
     return () => clearTimeout(t);
   }, [clienteBusquedaInput]);
 
+  // Búsqueda por teléfono (debounced)
+  useEffect(() => {
+    const q = clientePhoneSearch.trim();
+    if (q.length < 2) {
+      setPhoneSearchResults([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      setPhoneSearching(true);
+      const params = new URLSearchParams({ telefono: q, page: "1", pageSize: "20" });
+      fetch(`/api/clientes?${params}`, { credentials: "include" })
+        .then((res) => res.json())
+        .then((data) => {
+          const list = data?.clientes ?? (Array.isArray(data) ? data : []);
+          setPhoneSearchResults(list);
+        })
+        .catch(() => setPhoneSearchResults([]))
+        .finally(() => setPhoneSearching(false));
+    }, 350);
+    return () => clearTimeout(t);
+  }, [clientePhoneSearch]);
+
   // Preseleccionar cliente y abrir formulario si se viene desde Clientes con ?clienteId=...
   useEffect(() => {
     if (!authOk || clientes.length === 0) return;
@@ -290,6 +332,10 @@ export default function PedidosPage() {
 
   useEffect(() => {
     if (authOk) loadPedidos();
+  }, [authOk, page, fechaDesde, fechaHasta, repartidorFiltro, estadoFiltro, formaPagoFiltro, clienteBusqueda]);
+
+  useEffect(() => {
+    setPage(1);
   }, [fechaDesde, fechaHasta, repartidorFiltro, estadoFiltro, formaPagoFiltro, clienteBusqueda]);
 
   // Actualizar lista al volver a la pestaña (p. ej. cuando el repartidor marca En ruta/Entregado)
@@ -298,14 +344,14 @@ export default function PedidosPage() {
     const onFocus = () => loadPedidos();
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [authOk, fechaDesde, fechaHasta, repartidorFiltro, estadoFiltro, formaPagoFiltro, clienteBusqueda]);
+  }, [authOk, page, fechaDesde, fechaHasta, repartidorFiltro, estadoFiltro, formaPagoFiltro, clienteBusqueda]);
 
   // Polling cada 15 s para ver enseguida cuando el repartidor marca En ruta/Entregado
   useEffect(() => {
     if (!authOk) return;
     const id = setInterval(loadPedidos, 15_000);
     return () => clearInterval(id);
-  }, [authOk, fechaDesde, fechaHasta, repartidorFiltro, estadoFiltro, formaPagoFiltro, clienteBusqueda]);
+  }, [authOk, page, fechaDesde, fechaHasta, repartidorFiltro, estadoFiltro, formaPagoFiltro, clienteBusqueda]);
 
   async function cancelarPedido() {
     if (!cancelando) return;
@@ -320,12 +366,13 @@ export default function PedidosPage() {
       if (res.ok) {
         setCancelando(null);
         loadPedidos();
+        toast.success("Pedido cancelado");
       } else {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Error al cancelar");
+        toast.error(data.error ?? "Error al cancelar");
       }
     } catch {
-      setError("Error de conexión");
+      toast.error("Error de conexión");
     } finally {
       setSaving(false);
     }
@@ -400,7 +447,7 @@ export default function PedidosPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.clienteId.trim()) {
-      setError("Selecciona un cliente");
+      toast.error("Selecciona un cliente");
       return;
     }
     const lineasValidas = form.lineas.filter(
@@ -413,10 +460,21 @@ export default function PedidosPage() {
       precioUnitario: Number(l.precioUnitario),
     }));
     if (lineasValidas.length === 0) {
-      setError("Agrega al menos una línea con producto, cantidad y precio");
+      toast.error("Agrega al menos una línea con producto, cantidad y precio");
       return;
     }
-    setError("");
+    if (!form.fechaProgramada?.trim()) {
+      toast.error("Indica la fecha programada");
+      return;
+    }
+    if (!form.formaPago?.trim()) {
+      toast.error("Selecciona la forma de pago");
+      return;
+    }
+    if (form.formaPago === "EFECTIVO" && (!form.efectivoCon || Number(form.efectivoCon) <= 0)) {
+      toast.error("Indica con cuánto paga (efectivo)");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/pedidos", {
@@ -436,9 +494,10 @@ export default function PedidosPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "Error al crear");
+        toast.error(data.error ?? "Error al crear");
         return;
       }
+      toast.success("Pedido creado");
       setForm({
         clienteId: "",
         clienteDireccionId: "",
@@ -451,10 +510,12 @@ export default function PedidosPage() {
       });
       setClienteDetalle(null);
       setClienteSearch("");
+      setClientePhoneSearch("");
+      setPhoneSearchResults([]);
       setFormOpen(false);
       loadPedidos();
     } catch {
-      setError("Error de conexión");
+      toast.error("Error de conexión");
     } finally {
       setSaving(false);
     }
@@ -505,237 +566,290 @@ export default function PedidosPage() {
 
   return (
     <div className="min-h-screen p-6">
-      <header className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="size-4" />
-            Regresar
-          </Link>
-          <h1 className="text-xl font-semibold">Pedidos</h1>
-        </div>
-      </header>
-
-      <div className="mb-6">
+      <header className="flex flex-wrap justify-between items-center gap-4 mb-6">
+        <h1 className="text-xl font-semibold">Pedidos</h1>
         {userRole !== "REPARTIDOR" && (
           <Button type="button" size="sm" onClick={() => setFormOpen(!formOpen)}>
             {formOpen ? "Cerrar formulario" : "Nuevo pedido"}
           </Button>
         )}
+      </header>
+
+      <div className="mb-6">
         {formOpen && (
-          <form onSubmit={handleSubmit} className="mt-4 p-4 border rounded max-w-2xl space-y-4">
-            <div className="relative">
-              <label className="block text-sm mb-1">Cliente *</label>
-              <input
-                ref={clienteInputRef}
-                type="text"
-                value={clienteDropdownOpen ? clienteSearch : clienteDisplay || clienteSearch}
-                onChange={(e) => {
-                  setClienteSearch(e.target.value);
-                  setClienteDropdownOpen(true);
-                  if (!e.target.value) setForm((f) => ({ ...f, clienteId: "" }));
-                }}
-                onFocus={() => setClienteDropdownOpen(true)}
-                onBlur={() => setTimeout(() => setClienteDropdownOpen(false), 200)}
-                placeholder="Escribe nombre o documento..."
-                className="w-full border rounded px-3 py-2"
-                autoComplete="off"
-              />
-              {clienteDropdownOpen && (
-                <div className="absolute z-10 w-full mt-1 border rounded bg-background shadow-lg max-h-48 overflow-y-auto">
-                  {clientesFiltrados.length === 0 ? (
-                    <div className="px-3 py-2 text-sm text-neutral-500">Ningún cliente coincide</div>
-                  ) : (
-                    clientesFiltrados.map((c) => {
-                      const text = `${c.name}${c.documento ? " — " + c.documento : ""}`;
-                      return (
-                        <Button
-                          key={c.id}
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start rounded-none border-b border-neutral-100 last:border-0 h-auto py-2"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            setForm((f) => ({ ...f, clienteId: c.id }));
-                            setClienteSearch(text);
-                            setClienteDropdownOpen(false);
-                            clienteInputRef.current?.blur();
-                          }}
-                        >
-                          {text}
-                        </Button>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-            </div>
-
-            {form.clienteId && clienteDetalle && (
-              <div>
-                <label className="block text-sm mb-1">Dirección de entrega</label>
-                <select
-                  value={form.clienteDireccionId}
-                  onChange={(e) => setForm((f) => ({ ...f, clienteDireccionId: e.target.value }))}
-                  className="w-full border rounded px-3 py-2"
-                >
-                  <option value="">
-                    Dirección principal
-                    {clienteDetalle.direccion || clienteDetalle.distrito
-                      ? ` — ${[clienteDetalle.direccion, clienteDetalle.distrito].filter(Boolean).join(", ")}`
-                      : ""}
-                  </option>
-                  {clienteDetalle.direcciones.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.nombre} — {d.direccion}
-                      {d.distrito ? `, ${d.distrito}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm mb-1">Fecha programada</label>
-              <input
-                type="date"
-                value={form.fechaProgramada}
-                onChange={(e) => setForm((f) => ({ ...f, fechaProgramada: e.target.value }))}
-                className="w-full border rounded px-3 py-2 [color-scheme:light]"
-                title="Haz clic para abrir el calendario"
-              />
-            </div>
-
-            {isAdmin && (
-              <div>
-                <label className="block text-sm mb-1">Repartidor</label>
-                <select
-                  value={form.repartidorId}
-                  onChange={(e) => setForm((f) => ({ ...f, repartidorId: e.target.value }))}
-                  className="w-full border rounded px-3 py-2"
-                >
-                  <option value="">Sin asignar</option>
-                  {repartidores.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm mb-1">Forma de pago</label>
-              <select
-                value={form.formaPago}
-                onChange={(e) => setForm((f) => ({ ...f, formaPago: e.target.value }))}
-                className="w-full border rounded px-3 py-2"
-              >
-                <option value="">Seleccionar</option>
-                {formasPago.map((fp) => (
-                  <option key={fp.value} value={fp.value}>{fp.label}</option>
-                ))}
-              </select>
-            </div>
-            {form.formaPago === "EFECTIVO" && (
-              <div>
-                <label className="block text-sm mb-1">Con cuánto paga (efectivo)</label>
-                <input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={form.efectivoCon}
-                  onChange={(e) => setForm((f) => ({ ...f, efectivoCon: e.target.value }))}
-                  placeholder="Ej. 100"
-                  className="w-full border rounded px-3 py-2"
-                />
-              </div>
-            )}
-
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="block text-sm">Líneas del pedido *</label>
-                <Button type="button" variant="link" size="sm" onClick={addLinea}>
-                  + Agregar línea
-                </Button>
-              </div>
-              <div className="space-y-2">
-                {form.lineas.map((l, i) => (
-                  <div key={i} className="flex gap-2 items-center flex-wrap">
-                    <select
-                      value={l.productoId}
-                      onChange={(e) => setLinea(i, "productoId", e.target.value)}
-                      className="flex-1 min-w-[140px] border rounded px-2 py-1.5 text-sm"
-                      required={i === 0}
-                    >
-                      <option value="">Producto</option>
-                      {productos.map((prod) => (
-                        <option key={prod.id} value={prod.id}>
-                          {prod.name}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={l.marcaId}
-                      onChange={(e) => setLinea(i, "marcaId", e.target.value)}
-                      className="min-w-[110px] border rounded px-2 py-1.5 text-sm"
-                      title="Marca del balón"
-                    >
-                      <option value="">Marca</option>
-                      {marcas.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name}
-                        </option>
-                      ))}
-                    </select>
+          <form onSubmit={handleSubmit} className="mt-4 w-full">
+            <div className="rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+              <div className="p-6 space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Teléfono</label>
                     <input
-                      type="number"
-                      min={1}
-                      value={l.cantidad}
-                      onChange={(e) => setLinea(i, "cantidad", e.target.value)}
-                      placeholder="Cant."
-                      className="w-20 border rounded px-2 py-1.5 text-sm"
+                      ref={phoneInputRef}
+                      type="text"
+                      inputMode="numeric"
+                      value={clientePhoneDropdownOpen ? clientePhoneSearch : (form.clienteId && clienteSeleccionado?.telefono) || clientePhoneSearch}
+                      onChange={(e) => {
+                        setClientePhoneSearch(e.target.value);
+                        setClientePhoneDropdownOpen(true);
+                        if (!e.target.value) setForm((f) => (f.clienteId ? { ...f, clienteId: "" } : f));
+                      }}
+                      onFocus={() => setClientePhoneDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setClientePhoneDropdownOpen(false), 200)}
+                      placeholder="Buscar por número..."
+                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                      autoComplete="off"
                     />
-                    <input
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      value={l.precioUnitario}
-                      onChange={(e) => setLinea(i, "precioUnitario", e.target.value)}
-                      placeholder="Precio unit."
-                      className="w-28 border rounded px-2 py-1.5 text-sm"
-                    />
-                    {form.lineas.length > 1 && (
-                      <Button type="button" variant="link" size="sm" onClick={() => removeLinea(i)} className="text-red-600">
-                        Quitar
-                      </Button>
+                    {clientePhoneDropdownOpen && (clientePhoneSearch.trim().length >= 2 || phoneSearchResults.length > 0) && (
+                      <div className="absolute z-20 w-full mt-1 rounded-lg border border-neutral-200 bg-white shadow-lg max-h-52 overflow-y-auto">
+                        {phoneSearching ? (
+                          <div className="px-3 py-3 text-sm text-neutral-500">Buscando…</div>
+                        ) : phoneSearchResults.length === 0 ? (
+                          <div className="px-3 py-3 text-sm text-neutral-500">
+                            {clientePhoneSearch.trim().length >= 2 ? "Ningún cliente con ese número" : "Escribe al menos 2 dígitos"}
+                          </div>
+                        ) : (
+                          phoneSearchResults.map((c) => (
+                            <Button
+                              key={c.id}
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start rounded-none border-b border-neutral-100 last:border-0 h-auto py-2.5 text-left font-normal"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setForm((f) => ({ ...f, clienteId: c.id }));
+                                setClienteSearch(`${c.name}${c.documento ? " — " + c.documento : ""}`);
+                                setClientePhoneSearch(c.telefono ?? "");
+                                setPhoneSearchResults([]);
+                                setClientePhoneDropdownOpen(false);
+                                setClientes((prev) => (prev.some((x) => x.id === c.id) ? prev : [...prev, c]));
+                                phoneInputRef.current?.blur();
+                              }}
+                            >
+                              <span className="font-medium">{c.telefono ?? "—"}</span>
+                              <span className="text-neutral-500 ml-2">{c.name}</span>
+                            </Button>
+                          ))
+                        )}
+                      </div>
                     )}
                   </div>
-                ))}
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Cliente *</label>
+                    <input
+                      ref={clienteInputRef}
+                      type="text"
+                      value={clienteDropdownOpen ? clienteSearch : clienteDisplay || clienteSearch}
+                      onChange={(e) => {
+                        setClienteSearch(e.target.value);
+                        setClienteDropdownOpen(true);
+                        if (!e.target.value) setForm((f) => ({ ...f, clienteId: "" }));
+                      }}
+                      onFocus={() => setClienteDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setClienteDropdownOpen(false), 200)}
+                      placeholder="Nombre o documento..."
+                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                      autoComplete="off"
+                    />
+                    {clienteDropdownOpen && (
+                      <div className="absolute z-20 w-full mt-1 rounded-lg border border-neutral-200 bg-white shadow-lg max-h-52 overflow-y-auto">
+                        {clientesFiltrados.length === 0 ? (
+                          <div className="px-3 py-3 text-sm text-neutral-500">Ningún cliente coincide</div>
+                        ) : (
+                          clientesFiltrados.map((c) => {
+                            const text = `${c.name}${c.documento ? " — " + c.documento : ""}`;
+                            return (
+                              <Button
+                                key={c.id}
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start rounded-none border-b border-neutral-100 last:border-0 h-auto py-2.5 text-left font-normal"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  setForm((f) => ({ ...f, clienteId: c.id }));
+                                  setClienteSearch(text);
+                                  setClientePhoneSearch(c.telefono ?? "");
+                                  setClienteDropdownOpen(false);
+                                  clienteInputRef.current?.blur();
+                                }}
+                              >
+                                {text}
+                              </Button>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {form.clienteId && clienteDetalle && (
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Dirección de entrega</label>
+                    <select
+                      value={form.clienteDireccionId}
+                      onChange={(e) => setForm((f) => ({ ...f, clienteDireccionId: e.target.value }))}
+                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                    >
+                      <option value="">
+                        Dirección principal
+                        {clienteDetalle.direccion || clienteDetalle.distrito
+                          ? ` — ${[clienteDetalle.direccion, clienteDetalle.distrito].filter(Boolean).join(", ")}`
+                          : ""}
+                      </option>
+                      {clienteDetalle.direcciones.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.nombre} — {d.direccion}
+                          {d.distrito ? `, ${d.distrito}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Fecha programada *</label>
+                    <input
+                      type="date"
+                      value={form.fechaProgramada}
+                      onChange={(e) => setForm((f) => ({ ...f, fechaProgramada: e.target.value }))}
+                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm [color-scheme:light] focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                      title="Haz clic para abrir el calendario"
+                    />
+                  </div>
+                  {isAdmin && (
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">Repartidor</label>
+                      <select
+                        value={form.repartidorId}
+                        onChange={(e) => setForm((f) => ({ ...f, repartidorId: e.target.value }))}
+                        className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                      >
+                        <option value="">Sin asignar</option>
+                        {repartidores.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Forma de pago *</label>
+                    <select
+                      value={form.formaPago}
+                      onChange={(e) => setForm((f) => ({ ...f, formaPago: e.target.value }))}
+                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                    >
+                      <option value="">Seleccionar</option>
+                      {formasPago.map((fp) => (
+                        <option key={fp.value} value={fp.value}>{fp.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {form.formaPago === "EFECTIVO" && (
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">Con cuánto paga (efectivo) *</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={form.efectivoCon}
+                        onChange={(e) => setForm((f) => ({ ...f, efectivoCon: e.target.value }))}
+                        placeholder="Ej. 100"
+                        className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="block text-sm font-medium text-neutral-700">Líneas del pedido *</label>
+                    <Button type="button" variant="link" size="sm" onClick={addLinea} className="text-neutral-600 h-auto p-0">
+                      + Agregar línea
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {form.lineas.map((l, i) => (
+                      <div key={i} className="flex gap-2 items-center flex-wrap">
+                        <select
+                          value={l.productoId}
+                          onChange={(e) => setLinea(i, "productoId", e.target.value)}
+                          className="flex-1 min-w-[140px] rounded-lg border border-neutral-200 bg-white px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                          required={i === 0}
+                        >
+                          <option value="">Producto</option>
+                          {productos.map((prod) => (
+                            <option key={prod.id} value={prod.id}>
+                              {prod.name}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={l.marcaId}
+                          onChange={(e) => setLinea(i, "marcaId", e.target.value)}
+                          className="min-w-[110px] rounded-lg border border-neutral-200 bg-white px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                          title="Marca del balón"
+                        >
+                          <option value="">Marca</option>
+                          {marcas.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.name}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          min={1}
+                          value={l.cantidad}
+                          onChange={(e) => setLinea(i, "cantidad", e.target.value)}
+                          placeholder="Cant."
+                          className="w-20 rounded-lg border border-neutral-200 bg-white px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                        />
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={l.precioUnitario}
+                          onChange={(e) => setLinea(i, "precioUnitario", e.target.value)}
+                          placeholder="Precio unit."
+                          className="w-28 rounded-lg border border-neutral-200 bg-white px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                        />
+                        {form.lineas.length > 1 && (
+                          <Button type="button" variant="link" size="sm" onClick={() => removeLinea(i)} className="text-red-600 h-auto p-0">
+                            Quitar
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1.5">Observaciones</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Opcional"
+                    value={form.observaciones}
+                    onChange={(e) => setForm((f) => ({ ...f, observaciones: e.target.value }))}
+                    className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50 resize-none"
+                  />
+                </div>
+
+                <div className="pt-1">
+                  <Button type="submit" disabled={saving} size="sm" className="rounded-lg px-5">
+                    {saving && <Spinner data-icon="inline-start" />}
+                    {saving ? "Guardando…" : "Guardar"}
+                  </Button>
+                </div>
               </div>
             </div>
-
-            <div>
-              <label className="block text-sm mb-1">Observaciones</label>
-              <input
-                placeholder="Observaciones"
-                value={form.observaciones}
-                onChange={(e) => setForm((f) => ({ ...f, observaciones: e.target.value }))}
-                className="w-full border rounded px-3 py-2"
-              />
-            </div>
-
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircleIcon />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <Button type="submit" disabled={saving} size="sm">
-              {saving && <Spinner data-icon="inline-start" />}
-              {saving ? "Guardando…" : "Guardar"}
-            </Button>
           </form>
         )}
       </div>
@@ -863,24 +977,48 @@ export default function PedidosPage() {
               rows={3}
               className="w-full border rounded px-3 py-2 text-sm mb-3"
             />
-            {error && (
-              <Alert variant="destructive" className="mb-2">
-                <AlertCircleIcon />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
             <div className="flex gap-2 justify-end">
-              <Button type="button" variant="outline" size="sm" onClick={() => { setCancelando(null); setError(""); }}>Cerrar</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => setCancelando(null)}>Cerrar</Button>
               <Button type="button" size="sm" onClick={cancelarPedido} disabled={saving} variant="destructive">Confirmar cancelación</Button>
             </div>
           </div>
         </div>
       )}
 
-      {pedidos.length === 100 && (
-        <p className="text-sm text-neutral-600 mb-2">Mostrando últimos 100 pedidos.</p>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <p className="text-sm text-neutral-600">
+          {totalPedidos === 0
+            ? "No hay pedidos"
+            : `Mostrando ${(page - 1) * PEDIDOS_PAGE_SIZE + 1}-${Math.min(page * PEDIDOS_PAGE_SIZE, totalPedidos)} de ${totalPedidos} pedidos.`}
+        </p>
+        {totalPedidos > PEDIDOS_PAGE_SIZE && (
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+            >
+              <ChevronLeft className="size-4" />
+              Anterior
+            </Button>
+            <span className="text-sm text-neutral-600">
+              Página {page} de {Math.max(1, Math.ceil(totalPedidos / PEDIDOS_PAGE_SIZE))}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page >= Math.ceil(totalPedidos / PEDIDOS_PAGE_SIZE)}
+            >
+              Siguiente
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        )}
+      </div>
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -961,17 +1099,52 @@ export default function PedidosPage() {
                     {p.formaPago === "EFECTIVO" && p.efectivoCon != null && ` (con S/ ${Number(p.efectivoCon)})`}
                   </TableCell>
                   <TableCell>{p.observaciones ?? "—"}</TableCell>
-                  <TableCell className="align-middle whitespace-normal">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <Link href={`/pedidos/${p.id}`} className="text-sm underline shrink-0">Ver / Editar</Link>
+                  <TableCell className="align-middle">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <Link
+                        href={`/pedidos/${p.id}`}
+                        title="Ver / Editar"
+                        className="inline-flex items-center justify-center h-8 w-8 rounded-md text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
+                      >
+                        <Pencil className="size-4" />
+                      </Link>
                       {p.estado === "CREATED" && (
-                        <Button type="button" variant="link" size="sm" onClick={() => cambiarEstado(p.id, "IN_ROUTE")} disabled={updatingEstadoId === p.id} className="text-amber-700 h-auto p-0 shrink-0">En ruta</Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-amber-700 hover:text-amber-800 hover:bg-amber-50"
+                          onClick={() => cambiarEstado(p.id, "IN_ROUTE")}
+                          disabled={updatingEstadoId === p.id}
+                          title="En ruta"
+                        >
+                          {updatingEstadoId === p.id ? <Spinner className="size-4" /> : <Truck className="size-4" />}
+                        </Button>
                       )}
                       {(p.estado === "CREATED" || p.estado === "IN_ROUTE") && (
-                        <Button type="button" variant="link" size="sm" onClick={() => cambiarEstado(p.id, "DELIVERED")} disabled={updatingEstadoId === p.id} className="text-green-700 h-auto p-0 shrink-0">Entregado</Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-green-700 hover:text-green-800 hover:bg-green-50"
+                          onClick={() => cambiarEstado(p.id, "DELIVERED")}
+                          disabled={updatingEstadoId === p.id}
+                          title="Entregado"
+                        >
+                          {updatingEstadoId === p.id && p.estado === "IN_ROUTE" ? <Spinner className="size-4" /> : <CheckCircle className="size-4" />}
+                        </Button>
                       )}
                       {(p.estado === "CREATED" || p.estado === "IN_ROUTE") && (
-                        <Button type="button" variant="link" size="sm" onClick={() => { setCancelando({ id: p.id, motivo: "" }); setError(""); }} className="text-red-600 h-auto p-0 shrink-0">Cancelar</Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => setCancelando({ id: p.id, motivo: "" })}
+                          title="Cancelar"
+                        >
+                          <XCircle className="size-4" />
+                        </Button>
                       )}
                     </div>
                   </TableCell>

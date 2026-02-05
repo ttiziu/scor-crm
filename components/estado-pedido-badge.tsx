@@ -33,6 +33,8 @@ const ESTADO_CONFIG: Record<
 type EstadoPedidoBadgeProps = {
   estado: string;
   motivoCancelacion?: string | null;
+  /** Si true, el motivo de cancelación se muestra como texto junto al badge (ej. vista repartidor). Si false, se usa hover card. */
+  showMotivoInline?: boolean;
   loading?: boolean;
   className?: string;
 };
@@ -40,6 +42,7 @@ type EstadoPedidoBadgeProps = {
 export function EstadoPedidoBadge({
   estado,
   motivoCancelacion,
+  showMotivoInline = false,
   loading = false,
   className,
 }: EstadoPedidoBadgeProps) {
@@ -57,6 +60,17 @@ export function EstadoPedidoBadge({
     </Badge>
   );
 
+  // Vista repartidor: motivo visible junto al badge, sin hover
+  if (isCancelledWithMotivo && showMotivoInline) {
+    return (
+      <span className="inline-flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+        {badge}
+        <span className="text-sm text-neutral-600">Motivo: {motivoCancelacion}</span>
+      </span>
+    );
+  }
+
+  // Vista admin: motivo en hover card
   if (isCancelledWithMotivo) {
     return (
       <span className="inline-block">

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
-import { MapPin, Phone, Package, Truck, CheckCircle, XCircle, Copy, Check, ArrowLeft } from "lucide-react";
+import { MapPin, Package, Truck, CheckCircle, XCircle, Copy, Check, Clock } from "lucide-react";
 
 function todayISO() {
   const d = new Date();
@@ -29,6 +29,7 @@ type Pedido = {
   efectivoCon: number | string | null;
   observaciones: string | null;
   motivoCancelacion: string | null;
+  asignadoEn: string | null;
   cliente: {
     name: string;
     direccion: string | null;
@@ -46,6 +47,7 @@ export default function MisPedidosPage() {
   const [authOk, setAuthOk] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [fechaFiltro, setFechaFiltro] = useState(() => todayISO());
+  const [estadoFiltro, setEstadoFiltro] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -157,34 +159,54 @@ export default function MisPedidosPage() {
   const entregados = pedidos.filter((p) => p.estado === "DELIVERED").length;
   const cancelados = pedidos.filter((p) => p.estado === "CANCELLED").length;
 
+  const pedidosFiltrados = estadoFiltro ? pedidos.filter((p) => p.estado === estadoFiltro) : pedidos;
+
+  function toggleEstadoFiltro(estado: string) {
+    setEstadoFiltro((prev) => (prev === estado ? null : estado));
+  }
+
   return (
     <div className="min-h-screen p-4 sm:p-6">
       <header className="mb-4 sm:mb-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="size-4" />
-            Regresar
-          </Link>
-          <h1 className="text-xl font-semibold">Mis pedidos</h1>
-        </div>
+        <h1 className="text-xl font-semibold">Mis pedidos</h1>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
           <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1 sm:flex-wrap sm:overflow-visible sm:mx-0 sm:px-0">
-            <div className="flex items-center gap-1.5 rounded-md border bg-sky-50 px-2 py-1.5 border-sky-200 shrink-0" title="Pendientes">
+            <button
+              type="button"
+              onClick={() => toggleEstadoFiltro("CREATED")}
+              title="Pendientes"
+              className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 shrink-0 transition-colors hover:opacity-90 ${estadoFiltro === "CREATED" ? "bg-sky-50 border-sky-400 border-2" : "bg-sky-50 border-sky-200"}`}
+            >
               <Package className="size-3.5 text-sky-600" />
               <span className="text-sm font-semibold text-sky-700">{creados}</span>
-            </div>
-            <div className="flex items-center gap-1.5 rounded-md border bg-amber-50 px-2 py-1.5 border-amber-200 shrink-0" title="En ruta">
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleEstadoFiltro("IN_ROUTE")}
+              title="En ruta"
+              className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 shrink-0 transition-colors hover:opacity-90 ${estadoFiltro === "IN_ROUTE" ? "bg-amber-50 border-amber-400 border-2" : "bg-amber-50 border-amber-200"}`}
+            >
               <Truck className="size-3.5 text-amber-600" />
               <span className="text-sm font-semibold text-amber-700">{enRuta}</span>
-            </div>
-            <div className="flex items-center gap-1.5 rounded-md border bg-green-50 px-2 py-1.5 border-green-200 shrink-0" title="Entregados">
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleEstadoFiltro("DELIVERED")}
+              title="Entregados"
+              className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 shrink-0 transition-colors hover:opacity-90 ${estadoFiltro === "DELIVERED" ? "bg-green-50 border-green-400 border-2" : "bg-green-50 border-green-200"}`}
+            >
               <CheckCircle className="size-3.5 text-green-600" />
               <span className="text-sm font-semibold text-green-700">{entregados}</span>
-            </div>
-            <div className="flex items-center gap-1.5 rounded-md border bg-red-50 px-2 py-1.5 border-red-200 shrink-0" title="Cancelados">
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleEstadoFiltro("CANCELLED")}
+              title="Cancelados"
+              className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 shrink-0 transition-colors hover:opacity-90 ${estadoFiltro === "CANCELLED" ? "bg-red-50 border-red-400 border-2" : "bg-red-50 border-red-200"}`}
+            >
               <XCircle className="size-3.5 text-red-600" />
               <span className="text-sm font-semibold text-red-700">{cancelados}</span>
-            </div>
+            </button>
           </div>
           <div className="flex items-center gap-2 flex-nowrap sm:ml-auto">
             <input
@@ -207,8 +229,12 @@ export default function MisPedidosPage() {
       <div className="space-y-4">
         {pedidos.length === 0 ? (
           <p className="text-neutral-500 text-sm sm:text-base">No tienes pedidos asignados para esta fecha.</p>
+        ) : pedidosFiltrados.length === 0 ? (
+          <p className="text-neutral-500 text-sm sm:text-base">
+            No hay pedidos con el estado seleccionado. Haz clic en un icono para filtrar o vuelve a hacer clic para ver todos.
+          </p>
         ) : (
-          pedidos.map((p) => (
+          pedidosFiltrados.map((p) => (
             <article
               key={p.id}
               className={`rounded-xl border shadow-sm overflow-hidden ${p.estado === "CANCELLED" ? "border-red-200 bg-red-50/30" : "border-neutral-200 bg-white"}`}
@@ -221,25 +247,29 @@ export default function MisPedidosPage() {
                       <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                         <MapPin className="size-4 shrink-0 text-neutral-500" />
                         <span className="inline-flex items-center gap-1.5 flex-wrap text-base text-neutral-700 min-w-0">
-                          <span className="break-words">{direccionEntrega(p)}</span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => copiarDireccion(p.id, direccionEntrega(p) ?? "")}
-                            title="Copiar dirección (pegar en Google Maps)"
-                            className="shrink-0 text-neutral-500 hover:text-neutral-700 h-8 w-8 flex items-center justify-center"
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccionEntrega(p)!)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="break-words underline underline-offset-2 text-neutral-700 hover:text-neutral-900"
+                            title="Abrir en Google Maps"
                           >
-                            {copiedId === p.id ? <Check className="size-4 text-green-600" /> : <Copy className="size-4" />}
-                          </Button>
+                            {direccionEntrega(p)}
+                          </a>
+                          <span className="inline-flex shrink-0">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => copiarDireccion(p.id, direccionEntrega(p) ?? "")}
+                              title="Copiar dirección"
+                              className="text-neutral-500 hover:text-neutral-700 h-8 w-8 flex items-center justify-center"
+                            >
+                              {copiedId === p.id ? <Check className="size-4 text-green-600" /> : <Copy className="size-4" />}
+                            </Button>
+                          </span>
                         </span>
                       </div>
-                    )}
-                    {p.cliente.telefono && (
-                      <p className="mt-1 text-base text-neutral-700 flex items-center gap-1.5">
-                        <Phone className="size-4 shrink-0 text-neutral-500" />
-                        <a href={`tel:${p.cliente.telefono}`} className="underline">{p.cliente.telefono}</a>
-                      </p>
                     )}
                   </div>
                   <div className="shrink-0 text-right sm:text-right">
@@ -268,10 +298,17 @@ export default function MisPedidosPage() {
                   <p className="mt-2 text-base text-neutral-700 bg-neutral-100 rounded-lg px-3 py-2.5 border border-neutral-200">Obs: {p.observaciones}</p>
                 )}
 
+                {p.asignadoEn && (
+                  <p className="mt-2 flex items-center gap-1.5 text-sm text-neutral-600">
+                    <Clock className="size-4 shrink-0" />
+                    Asignado a las {new Date(p.asignadoEn).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                )}
                 <div className="mt-4 pt-3 border-t border-neutral-200 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <EstadoPedidoBadge
                     estado={p.estado}
                     motivoCancelacion={p.estado === "CANCELLED" ? p.motivoCancelacion : undefined}
+                    showMotivoInline
                     loading={updatingId === p.id}
                   />
                   {p.estado !== "CANCELLED" && (

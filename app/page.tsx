@@ -3,17 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Users } from "lucide-react";
+import { NumberTicker } from "@/components/ui/number-ticker";
+import { TypingAnimation } from "@/components/ui/typing-animation";
 
 type User = { id: string; username: string; role: string };
-
-function todayISO() {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 type DashboardStats = {
   totalClientes: number;
@@ -51,30 +45,22 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!user || user.role === "REPARTIDOR") return;
-    const hoy = todayISO();
-    Promise.all([
-      fetch("/api/clientes", { credentials: "include" }).then((r) => r.json()),
-      fetch(`/api/pedidos?fecha=${hoy}`, { credentials: "include" }).then((r) => r.json()),
-    ])
-      .then(([clientes, pedidos]) => {
-        const list = Array.isArray(pedidos) ? pedidos : [];
-        setStats({
-          totalClientes: Array.isArray(clientes) ? clientes.length : 0,
-          pedidosHoy: list.length,
-          creados: list.filter((p: { estado: string }) => p.estado === "CREATED").length,
-          enRuta: list.filter((p: { estado: string }) => p.estado === "IN_ROUTE").length,
-          entregados: list.filter((p: { estado: string }) => p.estado === "DELIVERED").length,
-          cancelados: list.filter((p: { estado: string }) => p.estado === "CANCELLED").length,
-        });
+    fetch("/api/stats", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.totalClientes !== undefined) {
+          setStats({
+            totalClientes: data.totalClientes,
+            pedidosHoy: data.pedidosHoy ?? 0,
+            creados: data.creados ?? 0,
+            enRuta: data.enRuta ?? 0,
+            entregados: data.entregados ?? 0,
+            cancelados: data.cancelados ?? 0,
+          });
+        }
       })
       .catch(() => setStats(null));
   }, [user]);
-
-  async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-    router.replace("/login");
-    router.refresh();
-  }
 
   if (loading) {
     return (
@@ -88,90 +74,53 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen p-6">
-      <header className="flex justify-between items-center mb-8">
-        <h1 className="text-xl font-semibold">SCOR CRM</h1>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-neutral-600">{user.username}</span>
-          <Button type="button" variant="link" size="sm" onClick={handleLogout}>
-            Cerrar sesión
-          </Button>
-        </div>
-      </header>
       <main>
-        <p className="mb-6">Bienvenido, {user.username}</p>
+        <p className="mb-6 flex flex-wrap items-baseline gap-4 justify-between">
+          <TypingAnimation
+            words={[`Bienvenido, ${user.username}.`]}
+            loop={true}
+            className="leading-normal"
+          />
+        </p>
 
         {user.role !== "REPARTIDOR" && stats !== null && (
           <section className="mb-8">
             <h2 className="text-lg font-medium mb-4">Resumen</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-              <Link href="/clientes" className="border border-neutral-300 rounded-lg p-4 hover:bg-neutral-50">
-                <p className="text-2xl font-semibold">{stats.totalClientes}</p>
-                <p className="text-sm text-neutral-600">Clientes</p>
+              <Link href="/clientes" className="border border-neutral-300 rounded-lg p-4 hover:bg-neutral-50 flex flex-col">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <NumberTicker value={stats.totalClientes} startValue={0} className="text-2xl font-semibold tabular-nums" />
+                    <p className="text-sm text-neutral-600 mt-0.5">Clientes</p>
+                  </div>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-emerald-100 text-emerald-600">
+                    <Users className="size-5" />
+                  </span>
+                </div>
               </Link>
               <Link href="/pedidos" className="border border-neutral-300 rounded-lg p-4 hover:bg-neutral-50">
-                <p className="text-2xl font-semibold">{stats.pedidosHoy}</p>
-                <p className="text-sm text-neutral-600">Pedidos hoy</p>
+                <NumberTicker value={stats.pedidosHoy} startValue={0} className="text-2xl font-semibold tabular-nums" />
+                <p className="text-sm text-neutral-600 mt-0.5">Pedidos hoy</p>
               </Link>
               <Link href="/pedidos" className="border border-neutral-300 rounded-lg p-4 hover:bg-neutral-50 border-l-4 border-l-amber-500">
-                <p className="text-2xl font-semibold">{stats.creados}</p>
-                <p className="text-sm text-neutral-600">Creados</p>
+                <NumberTicker value={stats.creados} startValue={0} className="text-2xl font-semibold tabular-nums" />
+                <p className="text-sm text-neutral-600 mt-0.5">Creados</p>
               </Link>
               <Link href="/pedidos" className="border border-neutral-300 rounded-lg p-4 hover:bg-neutral-50 border-l-4 border-l-amber-600">
-                <p className="text-2xl font-semibold">{stats.enRuta}</p>
-                <p className="text-sm text-neutral-600">En ruta</p>
+                <NumberTicker value={stats.enRuta} startValue={0} className="text-2xl font-semibold tabular-nums" />
+                <p className="text-sm text-neutral-600 mt-0.5">En ruta</p>
               </Link>
               <Link href="/pedidos" className="border border-neutral-300 rounded-lg p-4 hover:bg-neutral-50 border-l-4 border-l-green-600">
-                <p className="text-2xl font-semibold">{stats.entregados}</p>
-                <p className="text-sm text-neutral-600">Entregados</p>
+                <NumberTicker value={stats.entregados} startValue={0} className="text-2xl font-semibold tabular-nums" />
+                <p className="text-sm text-neutral-600 mt-0.5">Entregados</p>
               </Link>
               <Link href="/pedidos" className="border border-neutral-300 rounded-lg p-4 hover:bg-neutral-50 border-l-4 border-l-red-500">
-                <p className="text-2xl font-semibold">{stats.cancelados}</p>
-                <p className="text-sm text-neutral-600">Cancelados</p>
+                <NumberTicker value={stats.cancelados} startValue={0} className="text-2xl font-semibold tabular-nums" />
+                <p className="text-sm text-neutral-600 mt-0.5">Cancelados</p>
               </Link>
             </div>
           </section>
         )}
-
-        <nav className="flex gap-4 flex-wrap">
-          {user.role === "ADMIN" && (
-            <Link
-              href="/usuarios"
-              className="py-2 px-4 rounded bg-foreground text-background"
-            >
-              Usuarios
-            </Link>
-          )}
-          {user.role !== "REPARTIDOR" && (
-            <>
-              <Link
-                href="/clientes"
-                className="py-2 px-4 rounded bg-foreground text-background"
-              >
-                Clientes
-              </Link>
-              <Link
-                href="/productos"
-                className="py-2 px-4 rounded border border-foreground"
-              >
-                Productos
-              </Link>
-              <Link
-                href="/pedidos"
-                className="py-2 px-4 rounded border border-foreground"
-              >
-                Pedidos
-              </Link>
-            </>
-          )}
-          {user.role === "REPARTIDOR" && (
-            <Link
-              href="/mis-pedidos"
-              className="py-2 px-4 rounded bg-foreground text-background"
-            >
-              Mis pedidos
-            </Link>
-          )}
-        </nav>
       </main>
     </div>
   );

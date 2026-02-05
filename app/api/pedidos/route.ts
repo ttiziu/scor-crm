@@ -30,6 +30,8 @@ export async function GET(request: Request) {
   const fechaHastaParam = searchParams.get("fechaHasta"); // YYYY-MM-DD: fin de rango
   const repartidorIdParam = searchParams.get("repartidorId"); // solo para ADMIN/OPERADOR
   const formaPagoParam = searchParams.get("formaPago");
+  const pageParam = searchParams.get("page");
+  const pageSizeParam = searchParams.get("pageSize");
 
   const where: Prisma.PedidoWhereInput = {
     tenantId: session.tenantId,
@@ -69,40 +71,61 @@ export async function GET(request: Request) {
     where.fechaProgramada = { gte: start, lt: end };
   }
 
-  const PAGE_SIZE = 100;
+  const PAGE_SIZE_DEFAULT = 100;
+  const page = pageParam ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
+  const pageSize = pageSizeParam ? Math.min(100, Math.max(10, parseInt(pageSizeParam, 10) || PAGE_SIZE_DEFAULT)) : PAGE_SIZE_DEFAULT;
+  const skip = (page - 1) * pageSize;
+
+  const select = {
+    id: true,
+    clienteId: true,
+    clienteDireccionId: true,
+    estado: true,
+    cantidad: true,
+    fechaPedido: true,
+    fechaProgramada: true,
+    repartidorId: true,
+    asignadoEn: true,
+    formaPago: true,
+    efectivoCon: true,
+    motivoCancelacion: true,
+    observaciones: true,
+    createdAt: true,
+    cliente: { select: { id: true, name: true, direccion: true, distrito: true, telefono: true } },
+    clienteDireccion: { select: { id: true, nombre: true, direccion: true, distrito: true } },
+    repartidor: { select: { id: true, name: true } },
+    items: {
+      select: {
+        id: true,
+        productoId: true,
+        marcaId: true,
+        cantidad: true,
+        precioUnitario: true,
+        producto: { select: { id: true, name: true } },
+        marca: { select: { id: true, name: true } },
+      },
+    },
+  };
+
+  if (pageParam) {
+    const [total, pedidos] = await Promise.all([
+      prisma.pedido.count({ where }),
+      prisma.pedido.findMany({
+        where,
+        orderBy: { fechaPedido: "desc" },
+        skip,
+        take: pageSize,
+        select,
+      }),
+    ]);
+    return NextResponse.json({ pedidos, total, page, pageSize });
+  }
+
   const pedidos = await prisma.pedido.findMany({
     where,
     orderBy: { fechaPedido: "desc" },
-    take: PAGE_SIZE,
-    select: {
-      id: true,
-      clienteId: true,
-      clienteDireccionId: true,
-      estado: true,
-      cantidad: true,
-      fechaPedido: true,
-      fechaProgramada: true,
-      repartidorId: true,
-      formaPago: true,
-      efectivoCon: true,
-      motivoCancelacion: true,
-      observaciones: true,
-      createdAt: true,
-      cliente: { select: { id: true, name: true, direccion: true, distrito: true, telefono: true } },
-      clienteDireccion: { select: { id: true, nombre: true, direccion: true, distrito: true } },
-      repartidor: { select: { id: true, name: true } },
-      items: {
-        select: {
-          id: true,
-          productoId: true,
-          marcaId: true,
-          cantidad: true,
-          precioUnitario: true,
-          producto: { select: { id: true, name: true } },
-          marca: { select: { id: true, name: true } },
-        },
-      },
-    },
+    take: PAGE_SIZE_DEFAULT,
+    select,
   });
   return NextResponse.json(pedidos);
 }
@@ -194,6 +217,7 @@ export async function POST(request: Request) {
         observaciones: data.observaciones ?? null,
         fechaProgramada: fechaProgramada ?? null,
         repartidorId: data.repartidorId && data.repartidorId !== "" ? data.repartidorId : null,
+        asignadoEn: data.repartidorId && data.repartidorId !== "" ? new Date() : null,
         formaPago: data.formaPago ?? null,
         efectivoCon: data.efectivoCon != null ? data.efectivoCon : null,
         items:

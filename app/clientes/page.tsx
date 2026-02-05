@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircleIcon, ArrowLeft } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ChevronLeft, ChevronRight, ShoppingCart, Pencil, Trash2 } from "lucide-react";
 
 type ClienteDireccion = {
   id: string;
@@ -30,6 +31,8 @@ type Cliente = {
   direcciones?: ClienteDireccion[];
 };
 
+type DirAdicional = { nombre: string; direccion: string; distrito: string; tipoValvula: string };
+
 export default function ClientesPage() {
   const router = useRouter();
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -37,8 +40,8 @@ export default function ClientesPage() {
   const [authOk, setAuthOk] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
   const [form, setForm] = useState({ name: "", documento: "", direccion: "", distrito: "", tipoValvula: "", telefono: "", email: "" });
+  const [direccionesAdicionales, setDireccionesAdicionales] = useState<DirAdicional[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: "", documento: "", direccion: "", distrito: "", tipoValvula: "", telefono: "", email: "" });
   const [direcciones, setDirecciones] = useState<ClienteDireccion[]>([]);
@@ -52,17 +55,34 @@ export default function ClientesPage() {
   const [filtroNombreDebounced, setFiltroNombreDebounced] = useState("");
   const [filtroDocumentoDebounced, setFiltroDocumentoDebounced] = useState("");
   const [filtroTelefonoDebounced, setFiltroTelefonoDebounced] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalClientes, setTotalClientes] = useState(0);
+  const PAGE_SIZE = 100;
 
   function loadClientes() {
     const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("pageSize", String(PAGE_SIZE));
     if (filtroNombreDebounced) params.set("nombre", filtroNombreDebounced);
     if (filtroDocumentoDebounced) params.set("documento", filtroDocumentoDebounced);
     if (filtroTelefonoDebounced) params.set("telefono", filtroTelefonoDebounced);
-    const url = `/api/clientes${params.toString() ? `?${params.toString()}` : ""}`;
+    const url = `/api/clientes?${params.toString()}`;
     fetch(url, { credentials: "include" })
       .then((res) => res.json())
-      .then((data) => (Array.isArray(data) ? setClientes(data) : setClientes([])))
-      .catch(() => setClientes([]));
+      .then((data) => {
+        if (data?.clientes != null) {
+          setClientes(Array.isArray(data.clientes) ? data.clientes : []);
+          setTotalClientes(Number(data.total) ?? 0);
+        } else {
+          setClientes(Array.isArray(data) ? data : []);
+          setTotalClientes(0);
+        }
+      })
+      .catch(() => {
+        setClientes([]);
+        setTotalClientes(0);
+      });
   }
 
   function loadClienteParaEditar(id: string) {
@@ -125,7 +145,11 @@ export default function ClientesPage() {
   useEffect(() => {
     if (!authOk) return;
     loadClientes();
-  }, [authOk, filtroNombreDebounced, filtroDocumentoDebounced, filtroTelefonoDebounced]);
+  }, [authOk, page, filtroNombreDebounced, filtroDocumentoDebounced, filtroTelefonoDebounced]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filtroNombreDebounced, filtroDocumentoDebounced, filtroTelefonoDebounced]);
 
   useEffect(() => {
     if (editingId) loadClienteParaEditar(editingId);
@@ -133,9 +157,31 @@ export default function ClientesPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
+    const nameTrim = form.name.trim();
+    if (!nameTrim) {
+      toast.error("El nombre del cliente es requerido");
+      return;
+    }
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      toast.error("Indica un email válido");
+      return;
+    }
+    const incompleteDir = direccionesAdicionales.find((d) => (d.nombre.trim() && !d.direccion.trim()) || (!d.nombre.trim() && d.direccion.trim()));
+    if (incompleteDir) {
+      toast.error("En direcciones adicionales, nombre y dirección son requeridos cuando agregas una");
+      return;
+    }
     setSaving(true);
     try {
+      const dirsToSend = direccionesAdicionales
+        .filter((d) => d.nombre.trim() && d.direccion.trim())
+        .map((d) => ({
+          nombre: d.nombre.trim(),
+          direccion: d.direccion.trim(),
+          distrito: d.distrito.trim() || undefined,
+          tipoValvula: d.tipoValvula.trim() || undefined,
+        }));
+
       const res = await fetch("/api/clientes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -148,18 +194,21 @@ export default function ClientesPage() {
           tipoValvula: form.tipoValvula || undefined,
           telefono: form.telefono || undefined,
           email: form.email || undefined,
+          ...(dirsToSend.length > 0 && { direccionesAdicionales: dirsToSend }),
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "Error al crear");
+        toast.error(data.error ?? "Error al crear cliente");
         return;
       }
+      toast.success("Cliente creado");
       setForm({ name: "", documento: "", direccion: "", distrito: "", tipoValvula: "", telefono: "", email: "" });
+      setDireccionesAdicionales([]);
       setFormOpen(false);
       loadClientes();
     } catch {
-      setError("Error de conexión");
+      toast.error("Error de conexión");
     } finally {
       setSaving(false);
     }
@@ -168,7 +217,15 @@ export default function ClientesPage() {
   async function handleUpdateCliente(e: React.FormEvent) {
     e.preventDefault();
     if (!editingId) return;
-    setError("");
+    const nameTrim = editForm.name.trim();
+    if (!nameTrim) {
+      toast.error("El nombre del cliente es requerido");
+      return;
+    }
+    if (editForm.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email.trim())) {
+      toast.error("Indica un email válido");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/clientes/${editingId}`, {
@@ -187,13 +244,14 @@ export default function ClientesPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "Error al actualizar");
+        toast.error(data.error ?? "Error al actualizar");
         return;
       }
+      toast.success("Cliente actualizado");
       setEditingId(null);
       loadClientes();
     } catch {
-      setError("Error de conexión");
+      toast.error("Error de conexión");
     } finally {
       setSaving(false);
     }
@@ -261,6 +319,26 @@ export default function ClientesPage() {
     }
   }
 
+  async function handleDeleteCliente(id: string, name: string) {
+    if (!confirm(`¿Eliminar al cliente "${name}"? Se borrarán también sus direcciones y puede afectar pedidos asociados.`)) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/clientes/${id}`, { method: "DELETE", credentials: "include" });
+      if (res.ok) {
+        if (editingId === id) setEditingId(null);
+        loadClientes();
+        toast.success("Cliente eliminado");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "No se pudo eliminar el cliente");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -272,42 +350,118 @@ export default function ClientesPage() {
 
   return (
     <div className="min-h-screen p-6">
-      <header className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="size-4" />
-            Regresar
-          </Link>
-          <h1 className="text-xl font-semibold">Clientes</h1>
-        </div>
-      </header>
-
-      <div className="mb-6">
+      <header className="flex flex-wrap justify-between items-center gap-4 mb-6">
+        <h1 className="text-xl font-semibold">Clientes</h1>
         <Button type="button" size="sm" onClick={() => setFormOpen(!formOpen)}>
           {formOpen ? "Cerrar formulario" : "Nuevo cliente"}
         </Button>
+      </header>
+
+      <div className="mb-6">
         {formOpen && (
-          <form onSubmit={handleSubmit} className="mt-4 p-4 border rounded max-w-md space-y-3">
-            <input placeholder="Nombre *" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required className="w-full border rounded px-3 py-2" />
-            <input placeholder="Documento" value={form.documento} onChange={(e) => setForm((f) => ({ ...f, documento: e.target.value }))} className="w-full border rounded px-3 py-2" />
-            <input placeholder="Dirección" value={form.direccion} onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))} className="w-full border rounded px-3 py-2" />
-            <input placeholder="Distrito" value={form.distrito} onChange={(e) => setForm((f) => ({ ...f, distrito: e.target.value }))} className="w-full border rounded px-3 py-2" />
-            <input list="tipoValvula-list-new" placeholder="Tipo de válvula (ej. Normal, Premium)" value={form.tipoValvula} onChange={(e) => setForm((f) => ({ ...f, tipoValvula: e.target.value }))} className="w-full border rounded px-3 py-2" />
-            <datalist id="tipoValvula-list-new">{opcionesTipoValvula.map((o) => <option key={o} value={o} />)}</datalist>
-            <input placeholder="Teléfono" value={form.telefono} onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))} className="w-full border rounded px-3 py-2" />
-            <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className="w-full border rounded px-3 py-2" />
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircleIcon />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <Button type="submit" disabled={saving} size="sm">
-            {saving && <Spinner data-icon="inline-start" />}
-            Guardar
-          </Button>
-          </form>
+          <div className="mt-4 w-full">
+            <div className="rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+              <div className="p-6">
+                <h2 className="text-lg font-semibold text-neutral-900 mb-5">Nuevo cliente</h2>
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">Nombre *</label>
+                      <input
+                        placeholder="Ej. Juan Pérez"
+                        value={form.name}
+                        onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                        className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">Documento</label>
+                      <input
+                        placeholder="DNI o RUC"
+                        value={form.documento}
+                        onChange={(e) => setForm((f) => ({ ...f, documento: e.target.value }))}
+                        className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">Dirección</label>
+                      <input
+                        placeholder="Dirección principal"
+                        value={form.direccion}
+                        onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))}
+                        className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">Distrito</label>
+                      <input
+                        placeholder="Distrito"
+                        value={form.distrito}
+                        onChange={(e) => setForm((f) => ({ ...f, distrito: e.target.value }))}
+                        className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">Tipo de válvula</label>
+                      <input
+                        list="tipoValvula-list-new"
+                        placeholder="Ej. Normal, Premium"
+                        value={form.tipoValvula}
+                        onChange={(e) => setForm((f) => ({ ...f, tipoValvula: e.target.value }))}
+                        className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                      />
+                      <datalist id="tipoValvula-list-new">{opcionesTipoValvula.map((o) => <option key={o} value={o} />)}</datalist>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">Teléfono</label>
+                      <input
+                        placeholder="Teléfono"
+                        value={form.telefono}
+                        onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
+                        className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Email</label>
+                    <input
+                      type="email"
+                      placeholder="correo@ejemplo.com"
+                      value={form.email}
+                      onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                      className="w-full max-w-md rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-neutral-700 mb-2">Otra(s) dirección(es)</p>
+                    {direccionesAdicionales.map((d, i) => (
+                      <div key={i} className="flex flex-wrap items-center gap-2 mb-2 p-3 rounded-lg border border-neutral-200 bg-neutral-50/50">
+                        <input placeholder="Nombre (ej. Sucursal 2)" value={d.nombre} onChange={(e) => setDireccionesAdicionales((prev) => prev.map((x, j) => (j === i ? { ...x, nombre: e.target.value } : x)))} className="rounded-lg border border-neutral-200 bg-white px-2 py-2 w-36 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50" />
+                        <input placeholder="Dirección" value={d.direccion} onChange={(e) => setDireccionesAdicionales((prev) => prev.map((x, j) => (j === i ? { ...x, direccion: e.target.value } : x)))} className="rounded-lg border border-neutral-200 bg-white px-2 py-2 flex-1 min-w-[140px] text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50" />
+                        <input placeholder="Distrito" value={d.distrito} onChange={(e) => setDireccionesAdicionales((prev) => prev.map((x, j) => (j === i ? { ...x, distrito: e.target.value } : x)))} className="rounded-lg border border-neutral-200 bg-white px-2 py-2 w-28 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50" />
+                        <input list={`tipoValvula-extra-${i}`} placeholder="Válvula" value={d.tipoValvula} onChange={(e) => setDireccionesAdicionales((prev) => prev.map((x, j) => (j === i ? { ...x, tipoValvula: e.target.value } : x)))} className="rounded-lg border border-neutral-200 bg-white px-2 py-2 w-24 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50" />
+                        <datalist id={`tipoValvula-extra-${i}`}>{opcionesTipoValvula.map((o) => <option key={o} value={o} />)}</datalist>
+                        <Button type="button" variant="ghost" size="sm" className="text-red-600 shrink-0" onClick={() => setDireccionesAdicionales((prev) => prev.filter((_, j) => j !== i))}>Quitar</Button>
+                      </div>
+                    ))}
+                    <Button type="button" variant="outline" size="sm" onClick={() => setDireccionesAdicionales((prev) => [...prev, { nombre: "", direccion: "", distrito: "", tipoValvula: "" }])} className="rounded-lg">
+                      Añadir otra dirección
+                    </Button>
+                  </div>
+                  <div className="pt-1">
+                    <Button type="submit" disabled={saving} size="sm" className="rounded-lg px-5">
+                      {saving && <Spinner data-icon="inline-start" />}
+                      {saving ? "Guardando…" : "Guardar"}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
@@ -371,19 +525,12 @@ export default function ClientesPage() {
             <datalist id="tipoValvula-list-edit">{opcionesTipoValvula.map((o) => <option key={o} value={o} />)}</datalist>
             <input placeholder="Teléfono" value={editForm.telefono} onChange={(e) => setEditForm((f) => ({ ...f, telefono: e.target.value }))} className="w-full border rounded px-3 py-2" />
             <input type="email" placeholder="Email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} className="w-full border rounded px-3 py-2" />
-            {error && (
-              <Alert variant="destructive" className="mb-2">
-                <AlertCircleIcon />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
             <div className="flex gap-2">
               <Button type="submit" disabled={saving} size="sm">
                 {saving && <Spinner data-icon="inline-start" />}
                 Guardar cliente
               </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => { setEditingId(null); setError(""); }}>Cerrar</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => setEditingId(null)}>Cerrar</Button>
             </div>
           </form>
           <div className="mt-4">
@@ -420,9 +567,40 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {clientes.length === 100 && (
-        <p className="text-sm text-neutral-600 mb-2">Mostrando últimos 100 clientes.</p>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <p className="text-sm text-neutral-600">
+          {totalClientes === 0
+            ? "No hay clientes"
+            : `Mostrando ${(page - 1) * PAGE_SIZE + 1}-${Math.min(page * PAGE_SIZE, totalClientes)} de ${totalClientes} clientes.`}
+        </p>
+        {totalClientes > PAGE_SIZE && (
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+            >
+              <ChevronLeft className="size-4" />
+              Anterior
+            </Button>
+            <span className="text-sm text-neutral-600">
+              Página {page} de {Math.ceil(totalClientes / PAGE_SIZE)}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page >= Math.ceil(totalClientes / PAGE_SIZE)}
+            >
+              Siguiente
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        )}
+      </div>
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -433,14 +611,13 @@ export default function ClientesPage() {
               <TableHead>Distrito</TableHead>
               <TableHead>Tipo válvula</TableHead>
               <TableHead>Teléfono</TableHead>
-              <TableHead>Email</TableHead>
               <TableHead className="w-24">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {clientes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                   {filtroNombreDebounced || filtroDocumentoDebounced || filtroTelefonoDebounced
                     ? "No hay clientes con estos filtros"
                     : "No hay clientes"}
@@ -453,12 +630,47 @@ export default function ClientesPage() {
                   <TableCell>{c.documento ?? "—"}</TableCell>
                   <TableCell>{c.direccion ?? "—"}</TableCell>
                   <TableCell>{c.distrito ?? "—"}</TableCell>
-                  <TableCell>{c.tipoValvula ?? "—"}</TableCell>
-                  <TableCell>{c.telefono ?? "—"}</TableCell>
-                  <TableCell>{c.email ?? "—"}</TableCell>
                   <TableCell>
-                    <Link href={`/pedidos?clienteId=${encodeURIComponent(c.id)}`} className="text-sm underline mr-2">Hacer pedido</Link>
-                    <Button type="button" variant="link" size="sm" onClick={() => setEditingId(c.id)}>Editar</Button>
+                    {c.tipoValvula && /premium|premiun|premiu/i.test(c.tipoValvula) ? (
+                      <Badge variant="outline" className="font-semibold bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">P</Badge>
+                    ) : c.tipoValvula && /normal/i.test(c.tipoValvula) ? (
+                      <Badge variant="outline" className="font-semibold bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800">N</Badge>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                  <TableCell>{c.telefono ?? "—"}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Link
+                        href={`/pedidos?clienteId=${encodeURIComponent(c.id)}`}
+                        title="Hacer pedido"
+                        className="inline-flex items-center justify-center h-8 w-8 rounded-md text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                      >
+                        <ShoppingCart className="size-4" />
+                      </Link>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100"
+                        onClick={() => setEditingId(c.id)}
+                        title="Editar"
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDeleteCliente(c.id, c.name)}
+                        disabled={deletingId === c.id}
+                        title="Eliminar"
+                      >
+                        {deletingId === c.id ? <Spinner className="size-4" /> : <Trash2 className="size-4" />}
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

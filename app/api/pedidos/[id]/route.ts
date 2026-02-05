@@ -27,6 +27,7 @@ export async function GET(request: Request, { params }: RouteParams) {
       fechaPedido: true,
       fechaProgramada: true,
       repartidorId: true,
+      asignadoEn: true,
       formaPago: true,
       efectivoCon: true,
       motivoCancelacion: true,
@@ -133,12 +134,17 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       }
       updateData = { ...(data.estado !== undefined && { estado: data.estado }) };
     } else {
+      const newRepartidorId = data.repartidorId === "" ? null : data.repartidorId ?? undefined;
+      const isAssigningRepartidor = newRepartidorId !== undefined && newRepartidorId !== null && newRepartidorId !== existing.repartidorId;
       updateData = {
         ...(data.estado !== undefined && { estado: data.estado }),
         ...(data.cantidad !== undefined && { cantidad: data.cantidad }),
         ...(data.observaciones !== undefined && { observaciones: data.observaciones }),
         ...(data.motivoCancelacion !== undefined && { motivoCancelacion: data.motivoCancelacion }),
-        ...(data.repartidorId !== undefined && { repartidorId: data.repartidorId === "" ? null : data.repartidorId }),
+        ...(data.repartidorId !== undefined && {
+          repartidorId: data.repartidorId === "" ? null : data.repartidorId,
+          ...(isAssigningRepartidor && newRepartidorId ? { asignadoEn: new Date() } : data.repartidorId === "" ? { asignadoEn: null } : {}),
+        }),
         ...(data.clienteDireccionId !== undefined && { clienteDireccionId: data.clienteDireccionId === "" ? null : data.clienteDireccionId }),
         ...(data.formaPago !== undefined && { formaPago: data.formaPago }),
         ...(data.efectivoCon !== undefined && { efectivoCon: data.efectivoCon }),
@@ -173,6 +179,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         fechaPedido: true,
         fechaProgramada: true,
         repartidorId: true,
+        asignadoEn: true,
         formaPago: true,
         efectivoCon: true,
         motivoCancelacion: true,
@@ -205,6 +212,9 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   const session = await getSession(request);
   if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  if (session.role === "REPARTIDOR") {
+    return NextResponse.json({ error: "Solo administradores pueden eliminar pedidos" }, { status: 403 });
   }
 
   const { id } = await params;
