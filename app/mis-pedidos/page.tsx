@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
-import { MapPin, Package, Truck, CheckCircle, XCircle, Copy, Check, Clock } from "lucide-react";
+import { FormaPagoBadge } from "@/components/forma-pago-badge";
+import { MapPin, Package, Truck, CheckCircle, XCircle, Copy, Check, Clock, Upload, Loader2 } from "lucide-react";
 
 function todayISO() {
   const d = new Date();
@@ -49,6 +51,10 @@ export default function MisPedidosPage() {
   const [fechaFiltro, setFechaFiltro] = useState(() => todayISO());
   const [estadoFiltro, setEstadoFiltro] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [entregarModalPedidoId, setEntregarModalPedidoId] = useState<string | null>(null);
+  const [entregarSubmitting, setEntregarSubmitting] = useState(false);
+  const entregarFormRef = useRef<HTMLFormElement>(null);
+  const entregarFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
@@ -100,6 +106,10 @@ export default function MisPedidosPage() {
   }, [authOk, fechaFiltro]);
 
   async function cambiarEstado(pedidoId: string, estado: string) {
+    if (estado === "DELIVERED") {
+      setEntregarModalPedidoId(pedidoId);
+      return;
+    }
     setUpdatingId(pedidoId);
     try {
       const res = await fetch(`/api/pedidos/${pedidoId}`, {
@@ -115,6 +125,45 @@ export default function MisPedidosPage() {
       }
     } finally {
       setUpdatingId(null);
+    }
+  }
+
+  async function confirmarEntregaConEvidencia(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const pedidoId = entregarModalPedidoId;
+    if (!pedidoId || !entregarFormRef.current) return;
+    const form = entregarFormRef.current;
+    const fileInput = form.querySelector<HTMLInputElement>('input[name="evidencia"]');
+    const file = fileInput?.files?.[0];
+    if (!file) {
+      toast.error("Debes subir una foto de evidencia (voucher, POS, Yape, etc.)");
+      return;
+    }
+    setEntregarSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.set("evidencia", file);
+      const comentario = form.querySelector<HTMLTextAreaElement>('textarea[name="comentario"]')?.value?.trim();
+      if (comentario) formData.set("comentario", comentario);
+      const res = await fetch(`/api/pedidos/${pedidoId}/entregar`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "No se pudo registrar la entrega");
+        return;
+      }
+      toast.success("Entrega registrada con evidencia");
+      setPedidos((prev) =>
+        prev.map((p) => (p.id === pedidoId ? { ...p, estado: "DELIVERED" } : p))
+      );
+      setEntregarModalPedidoId(null);
+      form.reset();
+      if (entregarFileRef.current) entregarFileRef.current.value = "";
+    } finally {
+      setEntregarSubmitting(false);
     }
   }
 
@@ -274,12 +323,9 @@ export default function MisPedidosPage() {
                   </div>
                   <div className="shrink-0 text-right sm:text-right">
                     <p className="font-semibold text-lg text-neutral-900">S/ {total(p).toFixed(2)}</p>
-                    <p className="text-sm text-neutral-600">
-                      {p.formaPago ?? "—"}
-                      {p.formaPago === "EFECTIVO" && p.efectivoCon != null && (
-                        <span> (con S/ {Number(p.efectivoCon)})</span>
-                      )}
-                    </p>
+                    <div className="text-sm text-neutral-600">
+                      <FormaPagoBadge formaPago={p.formaPago} efectivoCon={p.efectivoCon} />
+                    </div>
                   </div>
                 </div>
 
@@ -329,7 +375,7 @@ export default function MisPedidosPage() {
                         <Button
                           type="button"
                           size="default"
-                          onClick={() => cambiarEstado(p.id, "DELIVERED")}
+                          onClick={() => setEntregarModalPedidoId(p.id)}
                           disabled={updatingId === p.id}
                           className="w-full sm:w-auto border-2 border-green-600 bg-green-50 text-green-700 hover:bg-green-100 font-medium rounded-lg"
                         >
@@ -345,6 +391,75 @@ export default function MisPedidosPage() {
           ))
         )}
       </div>
+
+      {/* Modal: registrar entrega con evidencia */}
+      {entregarModalPedidoId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
+            <h3 className="text-lg font-semibold text-neutral-900">Registrar entrega</h3>
+            <p className="mt-1 text-sm text-neutral-600">
+              Sube una foto del voucher, POS, Yape, Plin o del momento de la entrega. Es obligatoria.
+            </p>
+            <form
+              ref={entregarFormRef}
+              onSubmit={confirmarEntregaConEvidencia}
+              className="mt-4 space-y-4"
+            >
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-neutral-700">
+                  Foto de evidencia *
+                </label>
+                <input
+                  ref={entregarFileRef}
+                  type="file"
+                  name="evidencia"
+                  accept="image/jpeg,image/png,image/webp,image/heic"
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm file:mr-2 file:rounded file:border-0 file:bg-neutral-100 file:px-3 file:py-1 file:text-sm"
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-neutral-700">
+                  Comentario (opcional)
+                </label>
+                <textarea
+                  name="comentario"
+                  rows={2}
+                  placeholder="Ej: Cliente recibió los 2 balones en puerta."
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm placeholder:text-neutral-400"
+                />
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEntregarModalPedidoId(null);
+                    entregarFormRef.current?.reset();
+                    entregarFileRef.current && (entregarFileRef.current.value = "");
+                  }}
+                  disabled={entregarSubmitting}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={entregarSubmitting} className="bg-green-600 hover:bg-green-700">
+                  {entregarSubmitting ? (
+                    <>
+                      <Loader2 className="size-4 mr-2 animate-spin" />
+                      Enviando…
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="size-4 mr-2" />
+                      Confirmar entrega
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

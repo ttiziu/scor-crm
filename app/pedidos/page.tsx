@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/hover-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
-import { Pencil, Truck, CheckCircle, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { FormaPagoBadge } from "@/components/forma-pago-badge";
+import { Pencil, Truck, CheckCircle, XCircle, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 
 type Cliente = { id: string; name: string; documento?: string | null; telefono?: string | null };
 type ClienteDireccion = { id: string; nombre: string; direccion: string; distrito: string | null };
@@ -46,6 +47,7 @@ type Pedido = {
   cliente: Cliente & { direccion?: string | null; distrito?: string | null; telefono?: string | null };
   repartidor?: { id: string; name: string } | null;
   items?: PedidoItem[];
+  _count?: { evidencias: number };
 };
 
 type LineaForm = { productoId: string; marcaId: string; cantidad: string; precioUnitario: string };
@@ -56,6 +58,36 @@ function todayISO() {
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+type EvidenciaItem = { id: string; fotoUrl: string; comentario: string | null; createdAt: string; repartidor: string };
+
+function EvidenciaHoverContent({ pedidoId }: { pedidoId: string }) {
+  const [list, setList] = useState<EvidenciaItem[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/pedidos/${pedidoId}/evidencias`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => { if (!cancelled) setList(Array.isArray(data) ? data : []); })
+      .catch(() => { if (!cancelled) setList([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [pedidoId]);
+  if (loading) return <div className="p-4 text-sm text-muted-foreground">Cargando…</div>;
+  if (!list?.length) return <div className="p-4 text-sm text-muted-foreground">Sin evidencias</div>;
+  return (
+    <div className="p-3 space-y-3">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Evidencia de entrega</p>
+      {list.map((e) => (
+        <div key={e.id} className="space-y-1.5">
+          <img src={e.fotoUrl} alt="Evidencia" className="w-full rounded border object-contain max-h-48 bg-neutral-50" />
+          {e.comentario && <p className="text-sm text-neutral-600">{e.comentario}</p>}
+          <p className="text-xs text-muted-foreground">{e.repartidor} · {new Date(e.createdAt).toLocaleString("es-PE")}</p>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function PedidosContent() {
@@ -1095,8 +1127,25 @@ function PedidosContent() {
                   <TableCell>{formatDate(p.fechaProgramada)}</TableCell>
                   <TableCell>{p.repartidor?.name ?? "—"}</TableCell>
                   <TableCell>
-                    {p.formaPago ?? "—"}
-                    {p.formaPago === "EFECTIVO" && p.efectivoCon != null && ` (con S/ ${Number(p.efectivoCon)})`}
+                    <span className="inline-flex items-center gap-1.5">
+                      <FormaPagoBadge formaPago={p.formaPago} efectivoCon={p.efectivoCon} />
+                      {(p._count?.evidencias ?? 0) > 0 && (
+                        <HoverCard openDelay={200} closeDelay={100}>
+                          <HoverCardTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
+                              title="Ver evidencia de entrega"
+                            >
+                              <Eye className="size-4" />
+                            </button>
+                          </HoverCardTrigger>
+                          <HoverCardContent side="left" className="w-80 max-h-[70vh] overflow-auto p-0">
+                            <EvidenciaHoverContent pedidoId={p.id} />
+                          </HoverCardContent>
+                        </HoverCard>
+                      )}
+                    </span>
                   </TableCell>
                   <TableCell>{p.observaciones ?? "—"}</TableCell>
                   <TableCell className="align-middle">

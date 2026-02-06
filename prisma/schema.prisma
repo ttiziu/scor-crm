@@ -58,7 +58,8 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  pedidosAsignados Pedido[] @relation("RepartidorPedidos")
+  pedidosAsignados   Pedido[]           @relation("RepartidorPedidos")
+  evidenciasEntregas PedidoEvidencia[]
 
   @@unique([tenantId, username])
   @@index([tenantId])
@@ -145,11 +146,26 @@ model Pedido {
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
-  items PedidoItem[]
+  items     PedidoItem[]
+  evidencias PedidoEvidencia[]
 
   @@index([tenantId])
   @@index([clienteId])
   @@index([clienteDireccionId])
+  @@index([repartidorId])
+}
+
+model PedidoEvidencia {
+  id           String   @id @default(cuid())
+  pedidoId     String
+  pedido       Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  repartidorId String
+  repartidor   User     @relation(fields: [repartidorId], references: [id], onDelete: Cascade)
+  fotoUrl      String
+  comentario   String?
+  createdAt    DateTime @default(now())
+
+  @@index([pedidoId])
   @@index([repartidorId])
 }
 

@@ -105,6 +105,7 @@ export async function GET(request: Request) {
         marca: { select: { id: true, name: true } },
       },
     },
+    _count: { select: { evidencias: true } },
   };
 
   if (pageParam) {
