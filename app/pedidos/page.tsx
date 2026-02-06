@@ -45,6 +45,7 @@ type Pedido = {
   observaciones: string | null;
   createdAt: string;
   cliente: Cliente & { direccion?: string | null; distrito?: string | null; telefono?: string | null };
+  clienteDireccion?: { id: string; nombre: string; direccion: string; distrito: string | null } | null;
   repartidor?: { id: string; name: string } | null;
   items?: PedidoItem[];
   _count?: { evidencias: number };
@@ -1076,7 +1077,45 @@ function PedidosContent() {
             ) : (
               pedidos.map((p) => (
                 <TableRow key={p.id}>
-                  <TableCell>{p.cliente?.name ?? "—"}</TableCell>
+                  <TableCell>
+                    <HoverCard openDelay={200} closeDelay={100}>
+                      <HoverCardTrigger asChild>
+                        <button
+                          type="button"
+                          className="text-left text-sm underline decoration-dotted underline-offset-2 hover:no-underline cursor-default font-medium"
+                        >
+                          {p.cliente?.name ?? "—"}
+                        </button>
+                      </HoverCardTrigger>
+                      <HoverCardContent side="top" align="start" className="w-72">
+                        <div className="flex flex-col gap-2 text-sm">
+                          <h4 className="font-semibold text-foreground">{p.cliente?.name ?? "Cliente"}</h4>
+                          {p.cliente?.telefono ? (
+                            <p>
+                              <span className="text-muted-foreground">Tel: </span>
+                              <a href={`tel:${p.cliente.telefono}`} className="text-primary hover:underline">
+                                {p.cliente.telefono}
+                              </a>
+                            </p>
+                          ) : (
+                            <p className="text-muted-foreground">Sin teléfono</p>
+                          )}
+                          {p.cliente?.direccion || p.cliente?.distrito ? (
+                            <p>
+                              <span className="text-muted-foreground">Dirección: </span>
+                              {[p.cliente?.direccion, p.cliente?.distrito].filter(Boolean).join(", ")}
+                            </p>
+                          ) : null}
+                          {p.clienteDireccion && (
+                            <p className="pt-1 border-t border-border">
+                              <span className="text-muted-foreground">Entrega: </span>
+                              {[p.clienteDireccion.nombre, p.clienteDireccion.direccion, p.clienteDireccion.distrito].filter(Boolean).join(" · ")}
+                            </p>
+                          )}
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </TableCell>
                   <TableCell>
                     <EstadoPedidoBadge
                       estado={p.estado}
