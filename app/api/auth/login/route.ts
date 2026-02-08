@@ -4,8 +4,28 @@ import { prisma } from "@/lib/db";
 import { createToken } from "@/lib/auth/jwt";
 import { setSessionCookie } from "@/lib/auth/cookies";
 import { loginSchema } from "@/lib/validations/auth";
+import {
+  getClientIp,
+  isRateLimited,
+  recordFailedAttempt,
+  clearFailedAttempts,
+} from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+
+  // Verificar rate limiting antes de procesar
+  const rateCheck = isRateLimited(ip);
+  if (rateCheck.blocked) {
+    return NextResponse.json(
+      {
+        error: "Demasiados intentos fallidos. Intente nuevamente más tarde.",
+        retryAfter: rateCheck.retryAfter,
+      },
+      { status: 429 }
+    );
+  }
+
   try {
     const body = await request.json();
     const parsed = loginSchema.safeParse(body);
@@ -26,13 +46,18 @@ export async function POST(request: Request) {
       where: { tenantId_username: { tenantId: tenant.id, username } },
     });
     if (!user) {
+      recordFailedAttempt(ip);
       return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });
     }
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
+      recordFailedAttempt(ip);
       return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });
     }
+
+    // Login exitoso: limpiar intentos fallidos
+    clearFailedAttempts(ip);
 
     const token = await createToken({
       userId: user.id,
