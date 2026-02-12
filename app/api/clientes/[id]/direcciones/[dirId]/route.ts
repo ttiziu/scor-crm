@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/get-session";
+import { getEffectiveTenantId } from "@/lib/auth/get-effective-tenant";
 import { updateClienteDireccionSchema } from "@/lib/validations/clientes";
 
 type RouteParams = { params: Promise<{ id: string; dirId: string }> };
@@ -14,9 +15,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const { id: clienteId, dirId } = await params;
   const existing = await prisma.clienteDireccion.findFirst({
-    where: { id: dirId, cliente: { id: clienteId, tenantId: session.tenantId } },
+    where: { id: dirId, cliente: { id: clienteId, tenantId } },
   });
   if (!existing) {
     return NextResponse.json({ error: "Dirección no encontrada" }, { status: 404 });
@@ -64,9 +66,10 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const { id: clienteId, dirId } = await params;
   const existing = await prisma.clienteDireccion.findFirst({
-    where: { id: dirId, cliente: { id: clienteId, tenantId: session.tenantId } },
+    where: { id: dirId, cliente: { id: clienteId, tenantId } },
   });
   if (!existing) {
     return NextResponse.json({ error: "Dirección no encontrada" }, { status: 404 });

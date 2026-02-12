@@ -262,7 +262,7 @@ export default function MisPedidosPage() {
               type="date"
               value={fechaFiltro}
               onChange={(e) => setFechaFiltro(e.target.value)}
-              className="border rounded-md px-3 py-2 text-sm min-w-0 [color-scheme:light]"
+              className="border rounded-md px-3 py-2 text-sm min-w-0 scheme-light"
               title="Fecha"
             />
             <Button type="button" variant="outline" size="sm" onClick={() => setFechaFiltro(todayISO())}>

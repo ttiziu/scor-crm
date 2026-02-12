@@ -1,21 +1,58 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
-import { AlertCircleIcon, Eye, EyeOff } from "lucide-react";
+import { AlertCircleIcon, ChevronsUpDown, Eye, EyeOff } from "lucide-react";
+
+type TenantOption = { id: string; name: string; slug: string };
 
 export default function LoginPage() {
   const router = useRouter();
+  const [tenants, setTenants] = useState<TenantOption[]>([]);
+  const [tenantSlug, setTenantSlug] = useState("");
+  const [empresaOpen, setEmpresaOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (tenantSlug?.trim()) setError("");
+  }, [tenantSlug]);
+
+  useEffect(() => {
+    fetch("/api/auth/tenants")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setTenants(data);
+          if (data.length > 0) {
+            const demo = data.find((t: TenantOption) => t.slug === "demo");
+            setTenantSlug((prev) => prev || (demo ? demo.slug : data[0].slug));
+          }
+        }
+      })
+      .catch(() => setTenants([]));
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,13 +65,22 @@ export default function LoginPage() {
       toast.error("Completa el campo Contraseña");
       return;
     }
+    if (!tenantSlug?.trim() && tenants.length > 0) {
+      setError("Debes seleccionar una empresa");
+      toast.error("Debes seleccionar una empresa");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({
+          username,
+          password,
+          tenantSlug: tenantSlug || "demo",
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -67,6 +113,48 @@ export default function LoginPage() {
           />
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {tenants.length >= 1 && (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Empresa <span className="text-red-500">*</span>
+              </label>
+              <Popover open={empresaOpen} onOpenChange={setEmpresaOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={empresaOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {tenants.find((t) => t.slug === tenantSlug)?.name ?? "Selecciona tu empresa"}
+                    <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Buscar empresa..." />
+                    <CommandList>
+                      <CommandEmpty>No se encontró ninguna empresa.</CommandEmpty>
+                      <CommandGroup>
+                        {tenants.map((t) => (
+                          <CommandItem
+                            key={t.id}
+                            value={`${t.name} ${t.slug}`}
+                            onSelect={() => {
+                              setTenantSlug(t.slug);
+                              setEmpresaOpen(false);
+                            }}
+                          >
+                            {t.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
           <div>
             <label htmlFor="username" className="block text-sm font-medium mb-1">
               Usuario

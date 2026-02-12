@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/get-session";
+import { getEffectiveTenantId } from "@/lib/auth/get-effective-tenant";
 import { createProductoSchema } from "@/lib/validations/productos";
 
 export async function GET(request: Request) {
@@ -12,9 +13,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const PAGE_SIZE = 100;
   const productos = await prisma.producto.findMany({
-    where: { tenantId: session.tenantId },
+    where: { tenantId },
     orderBy: { name: "asc" },
     take: PAGE_SIZE,
     select: {
@@ -45,9 +47,10 @@ export async function POST(request: Request) {
       );
     }
 
+    const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
     const producto = await prisma.producto.create({
       data: {
-        tenantId: session.tenantId,
+        tenantId,
         name: parsed.data.name.trim(),
       },
       select: {

@@ -24,6 +24,8 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats | null>(null);
 
+  const [contextTenantId, setContextTenantId] = useState<string | null>(null);
+
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
       .then((res) => {
@@ -35,6 +37,7 @@ export default function HomePage() {
       })
       .then((data) => {
         if (data?.user) setUser(data.user);
+        setContextTenantId(data?.contextTenantId ?? null);
         setLoading(false);
       })
       .catch(() => {
@@ -60,7 +63,17 @@ export default function HomePage() {
         }
       })
       .catch(() => setStats(null));
-  }, [user]);
+  }, [user, contextTenantId]);
+
+  useEffect(() => {
+    const onContextChange = () => {
+      fetch("/api/auth/me", { credentials: "include" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => setContextTenantId(data?.contextTenantId ?? null));
+    };
+    window.addEventListener("scor-context-tenant-changed", onContextChange);
+    return () => window.removeEventListener("scor-context-tenant-changed", onContextChange);
+  }, []);
 
   if (loading) {
     return (
@@ -71,6 +84,14 @@ export default function HomePage() {
   }
 
   if (!user) return null;
+
+  if (user.role === "SUPER_ADMIN" && !contextTenantId) {
+    return (
+      <div className="min-h-screen p-6 flex items-center justify-center">
+        <p className="text-muted-foreground">Selecciona una empresa en el menú lateral para ver sus datos.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-6">

@@ -21,21 +21,49 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, ClipboardList, Truck, Users, Package, UserCog, LogOut, ChevronsUpDown } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { LayoutDashboard, ClipboardList, Truck, Users, Package, UserCog, LogOut, ChevronsUpDown, Building2, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type User = { username: string; role: string } | null;
+type Tenant = { id: string; name: string; slug: string };
 
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User>(null);
+  const [contextTenantId, setContextTenantId] = useState<string | null>(null);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [tenantSelectorOpen, setTenantSelectorOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => data?.user && setUser({ username: data.user.username, role: data.user.role }))
+      .then((data) => {
+        if (data?.user) {
+          setUser({ username: data.user.username, role: data.user.role });
+          setContextTenantId(data.contextTenantId ?? null);
+        }
+      })
       .catch(() => setUser(null));
   }, []);
+
+  useEffect(() => {
+    if (user?.role === "SUPER_ADMIN") {
+      fetch("/api/tenants", { credentials: "include" })
+        .then((res) => (res.ok ? res.json() : []))
+        .then((list) => Array.isArray(list) && list.length > 0 ? setTenants(list) : setTenants([]))
+        .catch(() => setTenants([]));
+    }
+  }, [user?.role]);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
@@ -43,8 +71,23 @@ export function AppSidebar() {
     router.refresh();
   }
 
+  async function setContextTenant(tenantId: string | null) {
+    const res = await fetch("/api/auth/context-tenant", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tenantId }),
+    });
+    if (!res.ok) return;
+    setContextTenantId(tenantId);
+    setTenantSelectorOpen(false);
+    window.dispatchEvent(new CustomEvent("scor-context-tenant-changed", { detail: { tenantId } }));
+    router.refresh();
+  }
+
   const allNavItems = [
     { href: "/", label: "Inicio", icon: LayoutDashboard, iconClass: "bg-blue-100 text-blue-600" },
+    { href: "/empresas", label: "Empresas", icon: Building2, superAdminOnly: true, iconClass: "bg-rose-100 text-rose-600" },
     { href: "/pedidos", label: "Pedidos", icon: ClipboardList, iconClass: "bg-amber-100 text-amber-600" },
     { href: "/mis-pedidos", label: "Mis pedidos", icon: Truck, repartidorOnly: true, iconClass: "bg-slate-100 text-slate-600" },
     { href: "/clientes", label: "Clientes", icon: Users, iconClass: "bg-emerald-100 text-emerald-600" },
@@ -53,9 +96,11 @@ export function AppSidebar() {
   ];
 
   const navItems = allNavItems.filter((item) => {
+    if ("superAdminOnly" in item && item.superAdminOnly) return user?.role === "SUPER_ADMIN";
     if (item.adminOnly) return user?.role === "ADMIN";
     if (item.repartidorOnly) return user?.role === "REPARTIDOR";
     if (user?.role === "REPARTIDOR") return item.href === "/" || item.href === "/mis-pedidos";
+    if (user?.role === "SUPER_ADMIN") return true; // super admin ve todo (incl. Empresas ya filtrado arriba)
     return true;
   });
 
@@ -90,6 +135,56 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
+        {user?.role === "SUPER_ADMIN" && (
+          <SidebarGroup className="border-b border-sidebar-border pb-3">
+            <SidebarGroupContent>
+              <div className="px-2">
+                <p className="mb-1.5 text-xs font-medium text-muted-foreground">Ver empresa</p>
+                <Popover open={tenantSelectorOpen} onOpenChange={setTenantSelectorOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-ring transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2"
+                    >
+                      <span className="truncate">
+                        {contextTenantId
+                          ? tenants.find((t) => t.id === contextTenantId)?.name ?? "Empresa"
+                          : "Selecciona una empresa"}
+                      </span>
+                      <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar empresa..." />
+                      <CommandList>
+                        <CommandEmpty>No se encontró ninguna empresa.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="Sin empresa salir"
+                            onSelect={() => setContextTenant(null)}
+                          >
+                            <span className="text-muted-foreground">Sin empresa (salir)</span>
+                          </CommandItem>
+                          {tenants.map((t) => (
+                            <CommandItem
+                              key={t.id}
+                              value={`${t.name} ${t.slug}`}
+                              onSelect={() => setContextTenant(t.id)}
+                            >
+                              <Check className={cn("mr-2 size-4", contextTenantId === t.id ? "opacity-100" : "opacity-0")} />
+                              {t.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="gap-3">

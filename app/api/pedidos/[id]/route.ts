@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/get-session";
+import { getEffectiveTenantId } from "@/lib/auth/get-effective-tenant";
 import { updatePedidoSchema } from "@/lib/validations/pedidos";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -11,8 +12,9 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const { id } = await params;
-  const where: { id: string; tenantId: string; repartidorId?: string } = { id, tenantId: session.tenantId };
+  const where: { id: string; tenantId: string; repartidorId?: string } = { id, tenantId };
   if (session.role === "REPARTIDOR") {
     where.repartidorId = session.userId;
   }
@@ -62,8 +64,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const { id } = await params;
-  const wherePatch: { id: string; tenantId: string; repartidorId?: string } = { id, tenantId: session.tenantId };
+  const wherePatch: { id: string; tenantId: string; repartidorId?: string } = { id, tenantId };
   if (session.role === "REPARTIDOR") wherePatch.repartidorId = session.userId;
   const existing = await prisma.pedido.findFirst({ where: wherePatch });
   if (!existing) {
@@ -83,7 +86,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     if (data.repartidorId !== undefined && data.repartidorId !== null && data.repartidorId !== "") {
       const repartidor = await prisma.user.findFirst({
-        where: { id: data.repartidorId, tenantId: session.tenantId, role: "REPARTIDOR" },
+        where: { id: data.repartidorId, tenantId, role: "REPARTIDOR" },
       });
       if (!repartidor) {
         return NextResponse.json({ error: "Repartidor no encontrado o no tiene rol REPARTIDOR" }, { status: 400 });
@@ -95,7 +98,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         where: {
           id: data.clienteDireccionId,
           clienteId: existing.clienteId,
-          cliente: { tenantId: session.tenantId },
+          cliente: { tenantId },
         },
       });
       if (!dir) {
@@ -106,7 +109,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     if (data.items && data.items.length > 0) {
       const productoIds = [...new Set(data.items.map((i) => i.productoId))];
       const productos = await prisma.producto.findMany({
-        where: { id: { in: productoIds }, tenantId: session.tenantId },
+        where: { id: { in: productoIds }, tenantId },
         select: { id: true },
       });
       if (productos.length !== productoIds.length) {
@@ -115,7 +118,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       const marcaIds = [...new Set(data.items.map((i) => i.marcaId).filter(Boolean))] as string[];
       if (marcaIds.length > 0) {
         const marcas = await prisma.marca.findMany({
-          where: { id: { in: marcaIds }, tenantId: session.tenantId },
+          where: { id: { in: marcaIds }, tenantId },
           select: { id: true },
         });
         if (marcas.length !== marcaIds.length) {
@@ -217,9 +220,10 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Solo administradores pueden eliminar pedidos" }, { status: 403 });
   }
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const { id } = await params;
   const existing = await prisma.pedido.findFirst({
-    where: { id, tenantId: session.tenantId },
+    where: { id, tenantId },
   });
   if (!existing) {
     return NextResponse.json({ error: "Pedido no encontrado" }, { status: 404 });

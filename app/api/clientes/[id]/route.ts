@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/get-session";
+import { getEffectiveTenantId } from "@/lib/auth/get-effective-tenant";
 import { updateClienteSchema } from "@/lib/validations/clientes";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -14,9 +15,10 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const { id } = await params;
   const cliente = await prisma.cliente.findFirst({
-    where: { id, tenantId: session.tenantId },
+    where: { id, tenantId },
     select: {
       id: true,
       name: true,
@@ -54,9 +56,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const { id } = await params;
   const existing = await prisma.cliente.findFirst({
-    where: { id, tenantId: session.tenantId },
+    where: { id, tenantId },
   });
   if (!existing) {
     return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
@@ -112,9 +115,10 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const { id } = await params;
   const existing = await prisma.cliente.findFirst({
-    where: { id, tenantId: session.tenantId },
+    where: { id, tenantId },
   });
   if (!existing) {
     return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });

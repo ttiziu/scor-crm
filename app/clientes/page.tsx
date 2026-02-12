@@ -38,6 +38,8 @@ export default function ClientesPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [authOk, setAuthOk] = useState(false);
+  const [userRole, setUserRole] = useState("");
+  const [contextTenantId, setContextTenantId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: "", documento: "", direccion: "", distrito: "", tipoValvula: "", telefono: "", email: "" });
@@ -105,8 +107,8 @@ export default function ClientesPage() {
       .catch(() => setDirecciones([]));
   }
 
-  useEffect(() => {
-    fetch("/api/auth/me", { credentials: "include" })
+  function fetchMe() {
+    return fetch("/api/auth/me", { credentials: "include" })
       .then((res) => {
         if (res.status === 401) {
           router.replace("/login");
@@ -119,11 +121,24 @@ export default function ClientesPage() {
           router.replace("/");
           return;
         }
-        if (data?.user) setAuthOk(true);
+        if (data?.user) {
+          setAuthOk(true);
+          setUserRole(data.user.role ?? "");
+          setContextTenantId(data.contextTenantId ?? null);
+        }
       })
-      .catch(() => router.replace("/login"))
-      .finally(() => setLoading(false));
+      .catch(() => router.replace("/login"));
+  }
+
+  useEffect(() => {
+    fetchMe().finally(() => setLoading(false));
   }, [router]);
+
+  useEffect(() => {
+    const onContextChange = () => fetchMe();
+    window.addEventListener("scor-context-tenant-changed", onContextChange);
+    return () => window.removeEventListener("scor-context-tenant-changed", onContextChange);
+  }, []);
 
   useEffect(() => {
     if (!authOk) return;
@@ -145,7 +160,7 @@ export default function ClientesPage() {
   useEffect(() => {
     if (!authOk) return;
     loadClientes();
-  }, [authOk, page, filtroNombreDebounced, filtroDocumentoDebounced, filtroTelefonoDebounced]);
+  }, [authOk, page, filtroNombreDebounced, filtroDocumentoDebounced, filtroTelefonoDebounced, contextTenantId]);
 
   useEffect(() => {
     setPage(1);
@@ -347,6 +362,14 @@ export default function ClientesPage() {
     );
   }
   if (!authOk) return null;
+
+  if (userRole === "SUPER_ADMIN" && !contextTenantId) {
+    return (
+      <div className="min-h-screen p-6 flex items-center justify-center">
+        <p className="text-muted-foreground">Selecciona una empresa en el menú lateral para ver sus datos.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-6">

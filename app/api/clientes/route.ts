@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/get-session";
+import { getEffectiveTenantId } from "@/lib/auth/get-effective-tenant";
 import { createClienteSchema } from "@/lib/validations/clientes";
 
 export async function GET(request: Request) {
@@ -19,8 +20,9 @@ export async function GET(request: Request) {
   const pageParam = searchParams.get("page");
   const pageSizeParam = searchParams.get("pageSize");
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const where = {
-    tenantId: session.tenantId,
+    tenantId,
     ...(nombreQuery && { name: { contains: nombreQuery, mode: "insensitive" as const } }),
     ...(documentoQuery && { documento: { contains: documentoQuery, mode: "insensitive" as const } }),
     ...(telefonoQuery && { telefono: { contains: telefonoQuery } }),
@@ -79,9 +81,10 @@ export async function POST(request: Request) {
     const data = parsed.data;
     const email = data.email === "" ? undefined : data.email;
 
+    const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
     const cliente = await prisma.cliente.create({
       data: {
-        tenantId: session.tenantId,
+        tenantId,
         name: data.name,
         documento: data.documento,
         direccion: data.direccion,

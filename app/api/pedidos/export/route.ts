@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import * as XLSX from "xlsx";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/get-session";
+import { getEffectiveTenantId } from "@/lib/auth/get-effective-tenant";
 
 const ESTADOS_VALIDOS = ["CREATED", "IN_ROUTE", "DELIVERED", "CANCELLED"] as const;
 const FORMAS_PAGO_VALIDAS = ["YAPE", "PLIN", "TRANSFERENCIA", "EFECTIVO", "TARJETA"] as const;
@@ -55,8 +56,9 @@ export async function GET(request: Request) {
   const repartidorIdParam = searchParams.get("repartidorId");
   const formaPagoParam = searchParams.get("formaPago");
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const where: Prisma.PedidoWhereInput = {
-    tenantId: session.tenantId,
+    tenantId,
   };
   if (session.role === "REPARTIDOR") {
     where.repartidorId = session.userId;
@@ -67,7 +69,7 @@ export async function GET(request: Request) {
   if (clienteQuery) {
     const clientesMatch = await prisma.cliente.findMany({
       where: {
-        tenantId: session.tenantId,
+        tenantId,
         OR: [
           { name: { contains: clienteQuery, mode: "insensitive" } },
           { documento: { contains: clienteQuery, mode: "insensitive" } },

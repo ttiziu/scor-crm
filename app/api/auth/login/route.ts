@@ -41,6 +41,9 @@ export async function POST(request: Request) {
     if (!tenant) {
       return NextResponse.json({ error: "Tenant no encontrado" }, { status: 404 });
     }
+    if (!tenant.isActive) {
+      return NextResponse.json({ error: "Empresa deshabilitada. Contacte al administrador." }, { status: 403 });
+    }
 
     const user = await prisma.user.findUnique({
       where: { tenantId_username: { tenantId: tenant.id, username } },

@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 const COOKIE_NAME = "scor_session";
 
 // Rutas que NO requieren autenticación
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/logout"];
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/logout", "/api/auth/tenants"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

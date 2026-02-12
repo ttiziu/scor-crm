@@ -3,6 +3,7 @@ import * as bcrypt from "bcryptjs";
 import type { Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/get-session";
+import { getEffectiveTenantId } from "@/lib/auth/get-effective-tenant";
 import { updateUsuarioSchema } from "@/lib/validations/usuarios";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -12,13 +13,14 @@ export async function GET(request: Request, { params }: RouteParams) {
   if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  if (session.role !== "ADMIN") {
+  if (session.role !== "ADMIN" && session.role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const { id } = await params;
   const user = await prisma.user.findFirst({
-    where: { id, tenantId: session.tenantId },
+    where: { id, tenantId },
     select: {
       id: true,
       username: true,
@@ -40,13 +42,14 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  if (session.role !== "ADMIN") {
+  if (session.role !== "ADMIN" && session.role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const { id } = await params;
   const existing = await prisma.user.findFirst({
-    where: { id, tenantId: session.tenantId },
+    where: { id, tenantId },
   });
   if (!existing) {
     return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
@@ -65,7 +68,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     if (data.username !== undefined && data.username !== existing.username) {
       const taken = await prisma.user.findUnique({
-        where: { tenantId_username: { tenantId: session.tenantId, username: data.username } },
+        where: { tenantId_username: { tenantId, username: data.username } },
       });
       if (taken) {
         return NextResponse.json({ error: "Ya existe un usuario con ese nombre de usuario" }, { status: 409 });
@@ -104,13 +107,14 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  if (session.role !== "ADMIN") {
+  if (session.role !== "ADMIN" && session.role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const { id } = await params;
   const existing = await prisma.user.findFirst({
-    where: { id, tenantId: session.tenantId },
+    where: { id, tenantId },
   });
   if (!existing) {
     return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });

@@ -5,6 +5,33 @@ import * as bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
+  // Tenant "plataforma" para el super admin (tú). No es una empresa cliente.
+  const platformTenant = await prisma.tenant.upsert({
+    where: { slug: "platform" },
+    update: {},
+    create: {
+      name: "Plataforma SCOR",
+      slug: "platform",
+    },
+  });
+
+  // Super admin (único usuario que ve y controla todas las empresas)
+  const superAdminHash = await bcrypt.hash("super123", 10);
+  await prisma.user.upsert({
+    where: {
+      tenantId_username: { tenantId: platformTenant.id, username: "superadmin" },
+    },
+    update: { passwordHash: superAdminHash, name: "Super Administrador", role: Role.SUPER_ADMIN },
+    create: {
+      tenantId: platformTenant.id,
+      username: "superadmin",
+      email: "super@scor.com",
+      passwordHash: superAdminHash,
+      name: "Super Administrador",
+      role: Role.SUPER_ADMIN,
+    },
+  });
+
   // Tenant de demostración
   const tenant = await prisma.tenant.upsert({
     where: { slug: "demo" },
@@ -163,8 +190,9 @@ async function main() {
   });
 
   console.log("Seed completado.");
-  console.log("Tenant:", tenant.slug);
-  console.log("Login de prueba (usuario / contraseña):");
+  console.log("Tenant demo:", tenant.slug);
+  console.log("Login de prueba (empresa 'demo', usuario / contraseña):");
+  console.log("  SUPER_ADMIN (empresa 'platform'): superadmin / super123");
   console.log("  ADMIN:       admin / admin123");
   console.log("  OPERADOR:    operador / operador123");
   console.log("  REPARTIDOR:  repartidor / repartidor123");

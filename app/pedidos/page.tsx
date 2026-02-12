@@ -101,6 +101,7 @@ function PedidosContent() {
   const [repartidores, setRepartidores] = useState<Repartidor[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userRole, setUserRole] = useState("");
+  const [contextTenantId, setContextTenantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [authOk, setAuthOk] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
@@ -207,8 +208,8 @@ function PedidosContent() {
       .catch(() => setRepartidores([]));
   }
 
-  useEffect(() => {
-    fetch("/api/auth/me", { credentials: "include" })
+  function fetchMe() {
+    return fetch("/api/auth/me", { credentials: "include" })
       .then((res) => {
         if (res.status === 401) {
           router.replace("/login");
@@ -220,12 +221,12 @@ function PedidosContent() {
         if (data?.user) {
           if (data.user.role === "REPARTIDOR") {
             router.replace("/mis-pedidos");
-            setLoading(false);
             return;
           }
           setAuthOk(true);
           setIsAdmin(data.user.role === "ADMIN");
           setUserRole(data.user.role ?? "");
+          setContextTenantId(data.contextTenantId ?? null);
         }
         loadPedidos();
         loadClientes();
@@ -237,9 +238,24 @@ function PedidosContent() {
           .then((d) => (Array.isArray(d) && d.length > 0 ? setFormasPago(d) : setFormasPago([{ value: "YAPE", label: "Yape" }, { value: "PLIN", label: "Plin" }, { value: "TRANSFERENCIA", label: "Transferencia" }, { value: "EFECTIVO", label: "Efectivo" }, { value: "TARJETA", label: "Tarjeta" }])))
           .catch(() => {});
       })
-      .catch(() => router.replace("/login"))
-      .finally(() => setLoading(false));
+      .catch(() => router.replace("/login"));
+  }
+
+  useEffect(() => {
+    fetchMe().finally(() => setLoading(false));
   }, [router]);
+
+  useEffect(() => {
+    const onContextChange = () => fetchMe().then(() => {
+      loadPedidos();
+      loadClientes();
+      loadProductos();
+      loadMarcas();
+      loadRepartidores();
+    });
+    window.addEventListener("scor-context-tenant-changed", onContextChange);
+    return () => window.removeEventListener("scor-context-tenant-changed", onContextChange);
+  }, []);
 
   useEffect(() => {
     if (!form.clienteId) {
@@ -365,7 +381,7 @@ function PedidosContent() {
 
   useEffect(() => {
     if (authOk) loadPedidos();
-  }, [authOk, page, fechaDesde, fechaHasta, repartidorFiltro, estadoFiltro, formaPagoFiltro, clienteBusqueda]);
+  }, [authOk, page, fechaDesde, fechaHasta, repartidorFiltro, estadoFiltro, formaPagoFiltro, clienteBusqueda, contextTenantId]);
 
   useEffect(() => {
     setPage(1);
@@ -597,6 +613,14 @@ function PedidosContent() {
   }
   if (!authOk) return null;
 
+  if (userRole === "SUPER_ADMIN" && !contextTenantId) {
+    return (
+      <div className="min-h-screen p-6 flex items-center justify-center">
+        <p className="text-muted-foreground">Selecciona una empresa en el menú lateral para ver sus datos.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen p-6">
       <header className="flex flex-wrap justify-between items-center gap-4 mb-6">
@@ -748,7 +772,7 @@ function PedidosContent() {
                       type="date"
                       value={form.fechaProgramada}
                       onChange={(e) => setForm((f) => ({ ...f, fechaProgramada: e.target.value }))}
-                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm [color-scheme:light] focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                      className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm scheme-light focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
                       title="Haz clic para abrir el calendario"
                     />
                   </div>
@@ -900,7 +924,7 @@ function PedidosContent() {
                 setFechaDesde(v);
                 if (v && fechaHasta && v > fechaHasta) setFechaHasta(v);
               }}
-              className="border rounded px-2 py-1.5 text-sm [color-scheme:light]"
+              className="border rounded px-2 py-1.5 text-sm scheme-light"
               title="Inicio del rango"
             />
             <label className="text-sm">Hasta:</label>
@@ -912,7 +936,7 @@ function PedidosContent() {
                 setFechaHasta(v);
                 if (v && fechaDesde && v < fechaDesde) setFechaDesde(v);
               }}
-              className="border rounded px-2 py-1.5 text-sm [color-scheme:light]"
+              className="border rounded px-2 py-1.5 text-sm scheme-light"
               title="Fin del rango"
             />
             <Button type="button" variant="outline" size="sm" onClick={() => { setFechaDesde(todayISO()); setFechaHasta(todayISO()); }}>Hoy</Button>

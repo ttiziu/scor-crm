@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import * as bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/get-session";
+import { getEffectiveTenantId } from "@/lib/auth/get-effective-tenant";
 import { createUsuarioSchema } from "@/lib/validations/usuarios";
 
 export async function GET(request: Request) {
@@ -9,13 +10,14 @@ export async function GET(request: Request) {
   if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  if (session.role !== "ADMIN") {
+  if (session.role !== "ADMIN" && session.role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const PAGE_SIZE = 100;
   const users = await prisma.user.findMany({
-    where: { tenantId: session.tenantId },
+    where: { tenantId },
     orderBy: { createdAt: "desc" },
     take: PAGE_SIZE,
     select: {
@@ -35,10 +37,11 @@ export async function POST(request: Request) {
   if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  if (session.role !== "ADMIN") {
+  if (session.role !== "ADMIN" && session.role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   try {
     const body = await request.json();
     const parsed = createUsuarioSchema.safeParse(body);
@@ -52,7 +55,7 @@ export async function POST(request: Request) {
     const email = data.email === "" ? undefined : data.email;
 
     const existing = await prisma.user.findUnique({
-      where: { tenantId_username: { tenantId: session.tenantId, username: data.username } },
+      where: { tenantId_username: { tenantId, username: data.username } },
     });
     if (existing) {
       return NextResponse.json({ error: "Ya existe un usuario con ese nombre de usuario" }, { status: 409 });
@@ -61,7 +64,7 @@ export async function POST(request: Request) {
     const passwordHash = await bcrypt.hash(data.password, 10);
     const user = await prisma.user.create({
       data: {
-        tenantId: session.tenantId,
+        tenantId,
         username: data.username,
         email,
         passwordHash,

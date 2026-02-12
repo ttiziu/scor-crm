@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/get-session";
+import { getEffectiveTenantId } from "@/lib/auth/get-effective-tenant";
 import { createClienteDireccionSchema } from "@/lib/validations/clientes";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -14,9 +15,10 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const { id: clienteId } = await params;
   const cliente = await prisma.cliente.findFirst({
-    where: { id: clienteId, tenantId: session.tenantId },
+    where: { id: clienteId, tenantId },
     select: { id: true },
   });
   if (!cliente) {
@@ -46,9 +48,10 @@ export async function POST(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const { id: clienteId } = await params;
   const cliente = await prisma.cliente.findFirst({
-    where: { id: clienteId, tenantId: session.tenantId },
+    where: { id: clienteId, tenantId },
     select: { id: true },
   });
   if (!cliente) {

@@ -24,6 +24,8 @@ export default function UsuariosPage() {
   const [loading, setLoading] = useState(true);
   const [authOk, setAuthOk] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState("");
+  const [contextTenantId, setContextTenantId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -43,8 +45,8 @@ export default function UsuariosPage() {
       .catch(() => setUsuarios([]));
   }
 
-  useEffect(() => {
-    fetch("/api/auth/me", { credentials: "include" })
+  function fetchMe() {
+    return fetch("/api/auth/me", { credentials: "include" })
       .then((res) => {
         if (res.status === 401) {
           router.replace("/login");
@@ -56,12 +58,23 @@ export default function UsuariosPage() {
         if (data?.user) {
           setAuthOk(true);
           setIsAdmin(data.user.role === "ADMIN");
-          if (data.user.role === "ADMIN") loadUsuarios();
+          setUserRole(data.user.role ?? "");
+          setContextTenantId(data.contextTenantId ?? null);
+          if (data.user.role === "ADMIN" || data.user.role === "SUPER_ADMIN") loadUsuarios();
         }
       })
-      .catch(() => router.replace("/login"))
-      .finally(() => setLoading(false));
+      .catch(() => router.replace("/login"));
+  }
+
+  useEffect(() => {
+    fetchMe().finally(() => setLoading(false));
   }, [router]);
+
+  useEffect(() => {
+    const onContextChange = () => fetchMe().then(() => loadUsuarios());
+    window.addEventListener("scor-context-tenant-changed", onContextChange);
+    return () => window.removeEventListener("scor-context-tenant-changed", onContextChange);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -151,10 +164,18 @@ export default function UsuariosPage() {
     );
   }
   if (!authOk) return null;
-  if (!isAdmin) {
+  if (!isAdmin && userRole !== "SUPER_ADMIN") {
     return (
       <div className="min-h-screen p-6">
         <p className="text-red-600">No tienes permiso para ver esta página.</p>
+      </div>
+    );
+  }
+
+  if (userRole === "SUPER_ADMIN" && !contextTenantId) {
+    return (
+      <div className="min-h-screen p-6 flex items-center justify-center">
+        <p className="text-muted-foreground">Selecciona una empresa en el menú lateral para ver sus datos.</p>
       </div>
     );
   }

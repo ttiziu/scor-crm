@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/get-session";
+import { getEffectiveTenantId } from "@/lib/auth/get-effective-tenant";
 
 function todayISO() {
   const d = new Date();
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
 
-  const tenantId = session.tenantId;
+  const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
   const hoy = todayISO();
   const startOfDay = new Date(hoy + "T00:00:00");
   const endOfDay = new Date(startOfDay);
