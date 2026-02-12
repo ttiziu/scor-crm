@@ -16,3 +16,17 @@ export const createTenantSchema = z.object({
 });
 
 export type CreateTenantInput = z.infer<typeof createTenantSchema>;
+
+export const updateTenantSchema = z.object({
+  name: z.string().min(1, "El nombre es requerido").optional(),
+  slug: z
+    .string()
+    .min(1, "El slug es requerido")
+    .regex(slugRegex, "Solo minúsculas, números y guiones (ej: mi-empresa)")
+    .optional(),
+  isActive: z.boolean().optional(),
+}).refine((data) => data.name !== undefined || data.slug !== undefined || data.isActive !== undefined, {
+  message: "Indica al menos un campo a actualizar (nombre, slug o estado)",
+});
+
+export type UpdateTenantInput = z.infer<typeof updateTenantSchema>;

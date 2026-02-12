@@ -17,7 +17,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircleIcon, Building2, Plus, Ban, CheckCircle, Trash2, Search } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { AlertCircleIcon, Building2, Plus, Ban, CheckCircle, Trash2, Search, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 type TenantRow = {
@@ -49,6 +56,8 @@ export default function EmpresasPage() {
   const [alertType, setAlertType] = useState<AlertType>(null);
   const [alertTenant, setAlertTenant] = useState<TenantRow | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingTenant, setEditingTenant] = useState<TenantRow | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", slug: "" });
 
   const filteredTenants = tenants.filter(
     (t) =>
@@ -285,13 +294,13 @@ export default function EmpresasPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Slug</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Usuarios</TableHead>
-              <TableHead className="text-right">Clientes</TableHead>
-              <TableHead className="text-right">Pedidos</TableHead>
-              <TableHead className="text-right w-[100px]">Acciones</TableHead>
+              <TableHead className="px-4">Nombre</TableHead>
+              <TableHead className="px-4">Slug</TableHead>
+              <TableHead className="px-4">Estado</TableHead>
+              <TableHead className="text-right px-4 w-24 tabular-nums">Usuarios</TableHead>
+              <TableHead className="text-right px-4 w-24 tabular-nums">Clientes</TableHead>
+              <TableHead className="text-right px-4 w-24 tabular-nums">Pedidos</TableHead>
+              <TableHead className="text-right px-4 w-[180px]">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -306,26 +315,38 @@ export default function EmpresasPage() {
             ) : (
               filteredTenants.map((t) => (
                 <TableRow key={t.id} className={!t.isActive ? "opacity-60 bg-muted/30" : ""}>
-                  <TableCell className="font-medium">{t.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{t.slug}</TableCell>
-                  <TableCell>
+                  <TableCell className="font-medium px-4">{t.name}</TableCell>
+                  <TableCell className="text-muted-foreground px-4">{t.slug}</TableCell>
+                  <TableCell className="px-4">
                     {t.isActive ? (
                       <span className="inline-flex items-center gap-1 text-green-600 text-sm">
-                        <CheckCircle className="size-4" />
+                        <CheckCircle className="size-4 shrink-0" />
                         Activa
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-red-600 text-sm">
-                        <Ban className="size-4" />
+                        <Ban className="size-4 shrink-0" />
                         Bloqueada
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">{t._count.users}</TableCell>
-                  <TableCell className="text-right">{t._count.clientes}</TableCell>
-                  <TableCell className="text-right">{t._count.pedidos}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right px-4 tabular-nums">{t._count.users}</TableCell>
+                  <TableCell className="text-right px-4 tabular-nums">{t._count.clientes}</TableCell>
+                  <TableCell className="text-right px-4 tabular-nums">{t._count.pedidos}</TableCell>
+                  <TableCell className="text-right px-4">
                     <div className="flex gap-1 justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        title="Editar nombre"
+                        onClick={() => {
+                          setEditingTenant(t);
+                          setEditForm({ name: t.name, slug: t.slug });
+                        }}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
                       <Button
                         variant={t.isActive ? "outline" : "default"}
                         size="sm"
@@ -359,6 +380,91 @@ export default function EmpresasPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={!!editingTenant} onOpenChange={(open) => !open && setEditingTenant(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar empresa</DialogTitle>
+          </DialogHeader>
+          {editingTenant && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const name = editForm.name.trim();
+                const slug = editForm.slug.trim().toLowerCase().replace(/\s+/g, "-");
+                if (!name) {
+                  toast.error("El nombre es requerido");
+                  return;
+                }
+                if (!slug) {
+                  toast.error("El slug es requerido");
+                  return;
+                }
+                setSaving(true);
+                try {
+                  const res = await fetch(`/api/tenants/${editingTenant.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ name, slug }),
+                  });
+                  const data = await res.json().catch(() => ({}));
+                  if (res.ok) {
+                    loadTenants();
+                    setEditingTenant(null);
+                    toast.success("Empresa actualizada");
+                  } else {
+                    toast.error(data.error ?? "Error al actualizar");
+                  }
+                } catch {
+                  toast.error("Error de conexión");
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              className="space-y-4"
+            >
+              <div className="space-y-2">
+                <label htmlFor="edit-tenant-name" className="block text-sm font-medium">
+                  Nombre
+                </label>
+                <Input
+                  id="edit-tenant-name"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Ej: Mi Empresa SAC"
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="edit-tenant-slug" className="block text-sm font-medium">
+                  Slug (para login)
+                </label>
+                <Input
+                  id="edit-tenant-slug"
+                  value={editForm.slug}
+                  onChange={(e) => setEditForm((f) => ({ ...f, slug: e.target.value }))}
+                  placeholder="Ej: mi-empresa"
+                  className="w-full"
+                  disabled={editingTenant.slug === "platform"}
+                />
+                {editingTenant.slug === "platform" && (
+                  <p className="text-xs text-muted-foreground">El slug de la plataforma no se puede cambiar.</p>
+                )}
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditingTenant(null)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={saving}>
+                  {saving && <Spinner data-icon="inline-start" />}
+                  Guardar
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={alertOpen} onOpenChange={setAlertOpen}>
         <AlertDialogContent>

@@ -4,8 +4,10 @@ import * as bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
+const isProduction = process.env.NODE_ENV === "production";
+
 async function main() {
-  // Tenant "plataforma" para el super admin (tú). No es una empresa cliente.
+  // Siempre: tenant "plataforma" y super admin (necesarios para que la app funcione).
   const platformTenant = await prisma.tenant.upsert({
     where: { slug: "platform" },
     update: {},
@@ -15,24 +17,39 @@ async function main() {
     },
   });
 
-  // Super admin (único usuario que ve y controla todas las empresas)
-  const superAdminHash = await bcrypt.hash("super123", 10);
-  await prisma.user.upsert({
+  const existingSuperAdmin = await prisma.user.findUnique({
     where: {
       tenantId_username: { tenantId: platformTenant.id, username: "superadmin" },
     },
-    update: { passwordHash: superAdminHash, name: "Super Administrador", role: Role.SUPER_ADMIN },
-    create: {
-      tenantId: platformTenant.id,
-      username: "superadmin",
-      email: "super@scor.com",
-      passwordHash: superAdminHash,
-      name: "Super Administrador",
-      role: Role.SUPER_ADMIN,
-    },
   });
 
-  // Tenant de demostración
+  if (existingSuperAdmin) {
+    // Usuario ya existe: solo actualizar nombre/rol, NUNCA la contraseña (puede estar cambiada en producción).
+    await prisma.user.update({
+      where: { id: existingSuperAdmin.id },
+      data: { name: "Super Administrador", role: Role.SUPER_ADMIN },
+    });
+  } else {
+    const superAdminHash = await bcrypt.hash("super123", 10);
+    await prisma.user.create({
+      data: {
+        tenantId: platformTenant.id,
+        username: "superadmin",
+        email: "super@scor.com",
+        passwordHash: superAdminHash,
+        name: "Super Administrador",
+        role: Role.SUPER_ADMIN,
+      },
+    });
+  }
+
+  // En producción no insertamos datos de demo (empresa demo, usuarios de prueba, etc.).
+  if (isProduction) {
+    console.log("Seed producción: solo platform + super admin. Demo omitido.");
+    return;
+  }
+
+  // Tenant de demostración (solo desarrollo)
   const tenant = await prisma.tenant.upsert({
     where: { slug: "demo" },
     update: {},
@@ -189,13 +206,7 @@ async function main() {
     },
   });
 
-  console.log("Seed completado.");
-  console.log("Tenant demo:", tenant.slug);
-  console.log("Login de prueba (empresa 'demo', usuario / contraseña):");
-  console.log("  SUPER_ADMIN (empresa 'platform'): superadmin / super123");
-  console.log("  ADMIN:       admin / admin123");
-  console.log("  OPERADOR:    operador / operador123");
-  console.log("  REPARTIDOR:  repartidor / repartidor123");
+  console.log("Seed completado (desarrollo). Tenant demo:", tenant.slug);
 }
 
 main()

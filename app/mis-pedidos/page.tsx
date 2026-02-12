@@ -300,7 +300,7 @@ export default function MisPedidosPage() {
                             href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccionEntrega(p)!)}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="break-words underline underline-offset-2 text-neutral-700 hover:text-neutral-900"
+                            className="wrap-break-word underline underline-offset-2 text-neutral-700 hover:text-neutral-900"
                             title="Abrir en Google Maps"
                           >
                             {direccionEntrega(p)}
