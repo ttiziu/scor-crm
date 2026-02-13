@@ -24,7 +24,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { AlertCircleIcon, Building2, Plus, Ban, CheckCircle, Trash2, Search, Pencil } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { AlertCircleIcon, Building2, Plus, Ban, CheckCircle, Trash2, Search, Pencil, UserCog, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 
 type TenantRow = {
@@ -58,6 +59,12 @@ export default function EmpresasPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [editingTenant, setEditingTenant] = useState<TenantRow | null>(null);
   const [editForm, setEditForm] = useState({ name: "", slug: "" });
+  const [usersSheetTenant, setUsersSheetTenant] = useState<TenantRow | null>(null);
+  const [usersData, setUsersData] = useState<{ tenant: { name: string }; users: Array<{ id: string; username: string | null; name: string; role: string }> } | null>(null);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [resetUser, setResetUser] = useState<{ id: string; username: string | null; name: string } | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetSaving, setResetSaving] = useState(false);
 
   const filteredTenants = tenants.filter(
     (t) =>
@@ -300,7 +307,7 @@ export default function EmpresasPage() {
               <TableHead className="text-right px-4 w-24 tabular-nums">Usuarios</TableHead>
               <TableHead className="text-right px-4 w-24 tabular-nums">Clientes</TableHead>
               <TableHead className="text-right px-4 w-24 tabular-nums">Pedidos</TableHead>
-              <TableHead className="text-right px-4 w-[180px]">Acciones</TableHead>
+              <TableHead className="text-right px-4 w-[220px]">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -335,6 +342,24 @@ export default function EmpresasPage() {
                   <TableCell className="text-right px-4 tabular-nums">{t._count.pedidos}</TableCell>
                   <TableCell className="text-right px-4">
                     <div className="flex gap-1 justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        title="Ver usuarios y resetear contraseñas"
+                        onClick={() => {
+                          setUsersSheetTenant(t);
+                          setUsersData(null);
+                          setUsersLoading(true);
+                          fetch(`/api/admin/tenants/${t.id}/users`, { credentials: "include" })
+                            .then((r) => (r.ok ? r.json() : null))
+                            .then((data) => setUsersData(data))
+                            .catch(() => setUsersData(null))
+                            .finally(() => setUsersLoading(false));
+                        }}
+                      >
+                        <UserCog className="size-4" />
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -380,6 +405,119 @@ export default function EmpresasPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Sheet open={!!usersSheetTenant} onOpenChange={(open) => !open && (setUsersSheetTenant(null), setUsersData(null), setResetUser(null))}>
+        <SheetContent side="right" className="sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Usuarios de {usersSheetTenant?.name ?? ""}</SheetTitle>
+          </SheetHeader>
+          {usersLoading ? (
+            <p className="p-4 text-muted-foreground text-sm">Cargando…</p>
+          ) : !usersData ? (
+            <p className="p-4 text-muted-foreground text-sm">Error al cargar usuarios.</p>
+          ) : (
+            <div className="flex-1 overflow-auto px-4 space-y-3">
+              {usersData.users.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No hay usuarios.</p>
+              ) : (
+                usersData.users.map((u) => (
+                  <div
+                    key={u.id}
+                    className="flex items-center justify-between gap-2 p-3 rounded-lg border bg-muted/30"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{u.username ?? "—"}</p>
+                      <p className="text-sm text-muted-foreground truncate">{u.name} · {u.role}</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => {
+                        setResetUser({ id: u.id, username: u.username, name: u.name });
+                        setResetPassword("");
+                      }}
+                    >
+                      <KeyRound className="size-4 mr-1" />
+                      Resetear
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <Dialog open={!!resetUser} onOpenChange={(open) => !open && (setResetUser(null), setResetPassword(""))}>
+        <DialogContent className="sm:max-w-md">
+          {resetUser && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Resetear contraseña</DialogTitle>
+                <p className="text-sm text-muted-foreground">
+                  Nueva contraseña para {resetUser.name} ({resetUser.username ?? "—"})
+                </p>
+              </DialogHeader>
+              <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!resetUser || !resetPassword.trim() || resetPassword.length < 6) {
+                toast.error("La contraseña debe tener al menos 6 caracteres");
+                return;
+              }
+              setResetSaving(true);
+              try {
+                const res = await fetch(`/api/admin/users/${resetUser.id}/reset-password`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({ password: resetPassword }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                  toast.success("Contraseña actualizada");
+                  setResetUser(null);
+                  setResetPassword("");
+                } else {
+                  toast.error(data.error ?? "Error al resetear");
+                }
+              } catch {
+                toast.error("Error de conexión");
+              } finally {
+                setResetSaving(false);
+              }
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <label htmlFor="reset-password" className="block text-sm font-medium">
+                Nueva contraseña
+              </label>
+              <Input
+                id="reset-password"
+                type="password"
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+                placeholder="Mín. 6 caracteres"
+                minLength={6}
+                className="w-full"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setResetUser(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={resetSaving || resetPassword.length < 6}>
+                {resetSaving && <Spinner data-icon="inline-start" />}
+                Guardar
+              </Button>
+            </DialogFooter>
+              </form>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!editingTenant} onOpenChange={(open) => !open && setEditingTenant(null)}>
         <DialogContent className="sm:max-w-md">
