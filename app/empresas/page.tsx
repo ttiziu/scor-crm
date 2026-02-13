@@ -65,6 +65,10 @@ export default function EmpresasPage() {
   const [resetUser, setResetUser] = useState<{ id: string; username: string | null; name: string } | null>(null);
   const [resetPassword, setResetPassword] = useState("");
   const [resetSaving, setResetSaving] = useState(false);
+  const [newUserOpen, setNewUserOpen] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({ username: "", name: "", password: "", role: "OPERADOR" as string });
+  const [newUserSaving, setNewUserSaving] = useState(false);
+  const [roleChangingId, setRoleChangingId] = useState<string | null>(null);
 
   const filteredTenants = tenants.filter(
     (t) =>
@@ -406,7 +410,7 @@ export default function EmpresasPage() {
         </Table>
       </div>
 
-      <Sheet open={!!usersSheetTenant} onOpenChange={(open) => !open && (setUsersSheetTenant(null), setUsersData(null), setResetUser(null))}>
+      <Sheet open={!!usersSheetTenant} onOpenChange={(open) => !open && (setUsersSheetTenant(null), setUsersData(null), setResetUser(null), setNewUserOpen(false))}>
         <SheetContent side="right" className="sm:max-w-md">
           <SheetHeader>
             <SheetTitle>Usuarios de {usersSheetTenant?.name ?? ""}</SheetTitle>
@@ -417,18 +421,71 @@ export default function EmpresasPage() {
             <p className="p-4 text-muted-foreground text-sm">Error al cargar usuarios.</p>
           ) : (
             <div className="flex-1 overflow-auto px-4 space-y-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  setNewUserForm({ username: "", name: "", password: "", role: "OPERADOR" });
+                  setNewUserOpen(true);
+                }}
+              >
+                <Plus className="size-4 mr-2" />
+                Nuevo usuario
+              </Button>
               {usersData.users.length === 0 ? (
                 <p className="text-muted-foreground text-sm">No hay usuarios.</p>
               ) : (
                 usersData.users.map((u) => (
                   <div
                     key={u.id}
-                    className="flex items-center justify-between gap-2 p-3 rounded-lg border bg-muted/30"
+                    className="flex flex-wrap items-center gap-2 p-3 rounded-lg border bg-muted/30"
                   >
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="font-medium truncate">{u.username ?? "—"}</p>
-                      <p className="text-sm text-muted-foreground truncate">{u.name} · {u.role}</p>
+                      <p className="text-sm text-muted-foreground truncate">{u.name}</p>
                     </div>
+                    <select
+                      value={u.role}
+                      disabled={roleChangingId === u.id || u.role === "SUPER_ADMIN"}
+                      className="text-sm border rounded px-2 py-1 bg-background min-w-[110px]"
+                      onChange={async (e) => {
+                        const role = e.target.value as "ADMIN" | "OPERADOR" | "REPARTIDOR";
+                        setRoleChangingId(u.id);
+                        try {
+                          const res = await fetch(`/api/admin/users/${u.id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            credentials: "include",
+                            body: JSON.stringify({ role }),
+                          });
+                          if (res.ok) {
+                            setUsersData((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    users: prev.users.map((x) =>
+                                      x.id === u.id ? { ...x, role } : x
+                                    ),
+                                  }
+                                : null
+                            );
+                            toast.success("Rol actualizado");
+                          } else {
+                            const d = await res.json().catch(() => ({}));
+                            toast.error(d.error ?? "Error");
+                          }
+                        } catch {
+                          toast.error("Error de conexión");
+                        } finally {
+                          setRoleChangingId(null);
+                        }
+                      }}
+                    >
+                      <option value="ADMIN">Admin</option>
+                      <option value="OPERADOR">Operador</option>
+                      <option value="REPARTIDOR">Repartidor</option>
+                    </select>
                     <Button
                       variant="outline"
                       size="sm"
@@ -448,6 +505,134 @@ export default function EmpresasPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={newUserOpen && !!usersSheetTenant} onOpenChange={(open) => !open && setNewUserOpen(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nuevo usuario en {usersSheetTenant?.name ?? ""}</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!usersSheetTenant) return;
+              const username = newUserForm.username.trim();
+              const name = newUserForm.name.trim();
+              const password = newUserForm.password;
+              if (!username) {
+                toast.error("El usuario es requerido");
+                return;
+              }
+              if (!name) {
+                toast.error("El nombre es requerido");
+                return;
+              }
+              if (!password || password.length < 6) {
+                toast.error("La contraseña debe tener al menos 6 caracteres");
+                return;
+              }
+              setNewUserSaving(true);
+              try {
+                const res = await fetch(`/api/admin/tenants/${usersSheetTenant.id}/users`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({
+                    username,
+                    name,
+                    email: "",
+                    password,
+                    role: newUserForm.role,
+                  }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                  toast.success("Usuario creado");
+                  setNewUserOpen(false);
+                  setNewUserForm({ username: "", name: "", password: "", role: "OPERADOR" });
+                  if (usersSheetTenant) {
+                    setUsersLoading(true);
+                    fetch(`/api/admin/tenants/${usersSheetTenant.id}/users`, { credentials: "include" })
+                      .then((r) => (r.ok ? r.json() : null))
+                      .then((d) => setUsersData(d))
+                      .catch(() => {})
+                      .finally(() => setUsersLoading(false));
+                  }
+                } else {
+                  toast.error(data.error ?? "Error al crear");
+                }
+              } catch {
+                toast.error("Error de conexión");
+              } finally {
+                setNewUserSaving(false);
+              }
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <label htmlFor="new-user-username" className="block text-sm font-medium">
+                Usuario (login)
+              </label>
+              <Input
+                id="new-user-username"
+                value={newUserForm.username}
+                onChange={(e) => setNewUserForm((f) => ({ ...f, username: e.target.value }))}
+                placeholder="Ej: operador1"
+                className="w-full"
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="new-user-name" className="block text-sm font-medium">
+                Nombre
+              </label>
+              <Input
+                id="new-user-name"
+                value={newUserForm.name}
+                onChange={(e) => setNewUserForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Ej: Juan Pérez"
+                className="w-full"
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="new-user-password" className="block text-sm font-medium">
+                Contraseña
+              </label>
+              <Input
+                id="new-user-password"
+                type="password"
+                value={newUserForm.password}
+                onChange={(e) => setNewUserForm((f) => ({ ...f, password: e.target.value }))}
+                placeholder="Mín. 6 caracteres"
+                minLength={6}
+                className="w-full"
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="new-user-role" className="block text-sm font-medium">
+                Rol
+              </label>
+              <select
+                id="new-user-role"
+                value={newUserForm.role}
+                onChange={(e) => setNewUserForm((f) => ({ ...f, role: e.target.value }))}
+                className="w-full border rounded-md px-3 py-2 bg-background text-sm"
+              >
+                <option value="ADMIN">Administrador</option>
+                <option value="OPERADOR">Operador</option>
+                <option value="REPARTIDOR">Repartidor</option>
+              </select>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setNewUserOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={newUserSaving}>
+                {newUserSaving && <Spinner data-icon="inline-start" />}
+                Crear
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!resetUser} onOpenChange={(open) => !open && (setResetUser(null), setResetPassword(""))}>
         <DialogContent className="sm:max-w-md">

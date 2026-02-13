@@ -55,6 +55,27 @@ export default function MisPedidosPage() {
   const [entregarSubmitting, setEntregarSubmitting] = useState(false);
   const entregarFormRef = useRef<HTMLFormElement>(null);
   const entregarFileRef = useRef<HTMLInputElement>(null);
+  const prevPedidoIdsRef = useRef<Set<string> | null>(null);
+
+  function playAsignacionSound() {
+    try {
+      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = "sine";
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.15);
+    } catch {
+      // Navegador sin soporte o sin interacción previa
+    }
+  }
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
@@ -81,12 +102,26 @@ export default function MisPedidosPage() {
   function loadPedidos() {
     fetch(`/api/pedidos?fecha=${fechaFiltro}`, { credentials: "include" })
       .then((res) => res.json())
-      .then((d) => (Array.isArray(d) ? setPedidos(d) : setPedidos([])))
+      .then((d) => {
+        const list = Array.isArray(d) ? d : [];
+        const ids = new Set(list.map((p: Pedido) => p.id));
+        const prev = prevPedidoIdsRef.current;
+        if (prev !== null && ids.size > 0) {
+          const nuevos = [...ids].filter((id) => !prev.has(id));
+          if (nuevos.length > 0) {
+            playAsignacionSound();
+            toast.success(`Tienes ${nuevos.length} pedido(s) nuevo(s) asignado(s)`);
+          }
+        }
+        prevPedidoIdsRef.current = ids;
+        setPedidos(list);
+      })
       .catch(() => setPedidos([]));
   }
 
   useEffect(() => {
     if (!authOk) return;
+    prevPedidoIdsRef.current = null; // reset al cambiar fecha para no sonar al cargar otro día
     loadPedidos();
   }, [authOk, fechaFiltro]);
 
