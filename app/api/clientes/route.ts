@@ -80,12 +80,15 @@ export async function POST(request: Request) {
     }
     const data = parsed.data;
     const email = data.email === "" ? undefined : data.email;
-
+    const nameTrim = data.name?.trim() ?? "";
     const tenantId = getEffectiveTenantId(request, session) ?? session.tenantId;
+    const count = await prisma.cliente.count({ where: { tenantId } });
+    const name = nameTrim ? nameTrim : `Cliente ${count + 1}`;
+
     const cliente = await prisma.cliente.create({
       data: {
         tenantId,
-        name: data.name,
+        name,
         documento: data.documento,
         direccion: data.direccion,
         distrito: data.distrito,

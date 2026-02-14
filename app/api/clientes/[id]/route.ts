@@ -76,10 +76,23 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
     const data = parsed.data;
 
+    const nameTrim = data.name !== undefined ? (data.name?.trim() ?? "") : undefined;
+    let computedName: string | undefined;
+    if (nameTrim !== undefined) {
+      if (nameTrim) {
+        computedName = nameTrim;
+      } else {
+        const count = await prisma.cliente.count({ where: { tenantId } });
+        computedName = `Cliente ${count + 1}`;
+      }
+    } else {
+      computedName = undefined;
+    }
+
     const cliente = await prisma.cliente.update({
       where: { id },
       data: {
-        ...(data.name !== undefined && { name: data.name }),
+        ...(computedName !== undefined && { name: computedName }),
         ...(data.documento !== undefined && { documento: data.documento }),
         ...(data.direccion !== undefined && { direccion: data.direccion }),
         ...(data.distrito !== undefined && { distrito: data.distrito }),

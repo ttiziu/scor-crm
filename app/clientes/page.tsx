@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { clienteDisplayName } from "@/lib/cliente-display-name";
 import { ChevronLeft, ChevronRight, ShoppingCart, Pencil, Trash2 } from "lucide-react";
 
 type ClienteDireccion = {
@@ -172,9 +173,16 @@ export default function ClientesPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const nameTrim = form.name.trim();
-    if (!nameTrim) {
-      toast.error("El nombre del cliente es requerido");
+    if (!form.telefono.trim()) {
+      toast.error("El teléfono es requerido");
+      return;
+    }
+    if (!form.direccion.trim()) {
+      toast.error("La dirección es requerida");
+      return;
+    }
+    if (!form.distrito.trim()) {
+      toast.error("El distrito es requerido");
       return;
     }
     if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
@@ -202,12 +210,12 @@ export default function ClientesPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          name: form.name,
+          name: form.name.trim() || undefined,
           documento: form.documento || undefined,
-          direccion: form.direccion || undefined,
-          distrito: form.distrito || undefined,
+          direccion: form.direccion.trim(),
+          distrito: form.distrito.trim(),
+          telefono: form.telefono.trim(),
           tipoValvula: form.tipoValvula || undefined,
-          telefono: form.telefono || undefined,
           email: form.email || undefined,
           ...(dirsToSend.length > 0 && { direccionesAdicionales: dirsToSend }),
         }),
@@ -232,11 +240,6 @@ export default function ClientesPage() {
   async function handleUpdateCliente(e: React.FormEvent) {
     e.preventDefault();
     if (!editingId) return;
-    const nameTrim = editForm.name.trim();
-    if (!nameTrim) {
-      toast.error("El nombre del cliente es requerido");
-      return;
-    }
     if (editForm.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email.trim())) {
       toast.error("Indica un email válido");
       return;
@@ -389,9 +392,9 @@ export default function ClientesPage() {
                 <form onSubmit={handleSubmit} className="space-y-5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">Nombre *</label>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">Nombre (opcional)</label>
                       <input
-                        placeholder="Ej. Juan Pérez"
+                        placeholder="Dejar vacío = Cliente 1, Cliente 2, etc."
                         value={form.name}
                         onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                         className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
@@ -409,25 +412,37 @@ export default function ClientesPage() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">Dirección</label>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">Dirección *</label>
                       <input
                         placeholder="Dirección principal"
                         value={form.direccion}
                         onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))}
+                        required
                         className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">Distrito</label>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">Distrito *</label>
                       <input
                         placeholder="Distrito"
                         value={form.distrito}
                         onChange={(e) => setForm((f) => ({ ...f, distrito: e.target.value }))}
+                        required
                         className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
                       />
                     </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">Teléfono *</label>
+                      <input
+                        placeholder="Ej. 987654321"
+                        value={form.telefono}
+                        onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
+                        required
+                        className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                      />
+                    </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 mb-1.5">Tipo de válvula</label>
                       <input
@@ -438,15 +453,6 @@ export default function ClientesPage() {
                         className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
                       />
                       <datalist id="tipoValvula-list-new">{opcionesTipoValvula.map((o) => <option key={o} value={o} />)}</datalist>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">Teléfono</label>
-                      <input
-                        placeholder="Teléfono"
-                        value={form.telefono}
-                        onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
-                        className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
-                      />
                     </div>
                   </div>
                   <div>
@@ -540,7 +546,7 @@ export default function ClientesPage() {
         <div className="mb-6 p-4 border rounded bg-neutral-50 max-w-2xl">
           <h2 className="font-medium mb-3">Editar cliente</h2>
           <form onSubmit={handleUpdateCliente} className="space-y-3">
-            <input placeholder="Nombre *" value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} required className="w-full border rounded px-3 py-2" />
+            <input placeholder="Nombre (opcional, vacío = Cliente N por orden)" value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} className="w-full border rounded px-3 py-2" />
             <input placeholder="Documento" value={editForm.documento} onChange={(e) => setEditForm((f) => ({ ...f, documento: e.target.value }))} className="w-full border rounded px-3 py-2" />
             <input placeholder="Dirección principal" value={editForm.direccion} onChange={(e) => setEditForm((f) => ({ ...f, direccion: e.target.value }))} className="w-full border rounded px-3 py-2" />
             <input placeholder="Distrito" value={editForm.distrito} onChange={(e) => setEditForm((f) => ({ ...f, distrito: e.target.value }))} className="w-full border rounded px-3 py-2" />
@@ -649,7 +655,7 @@ export default function ClientesPage() {
             ) : (
               clientes.map((c) => (
                 <TableRow key={c.id}>
-                  <TableCell>{c.name}</TableCell>
+                  <TableCell>{clienteDisplayName(c)}</TableCell>
                   <TableCell>{c.documento ?? "—"}</TableCell>
                   <TableCell>{c.direccion ?? "—"}</TableCell>
                   <TableCell>{c.distrito ?? "—"}</TableCell>
@@ -687,7 +693,7 @@ export default function ClientesPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleDeleteCliente(c.id, c.name)}
+                        onClick={() => handleDeleteCliente(c.id, clienteDisplayName(c))}
                         disabled={deletingId === c.id}
                         title="Eliminar"
                       >

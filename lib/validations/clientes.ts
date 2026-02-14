@@ -8,18 +8,18 @@ const direccionAdicionalSchema = z.object({
 });
 
 export const createClienteSchema = z.object({
-  name: z.string().min(1, "El nombre es requerido"),
+  name: z.string().optional(),
   documento: z.string().optional(),
-  direccion: z.string().optional(),
-  distrito: z.string().optional(),
+  direccion: z.string().min(1, "La dirección es requerida"),
+  distrito: z.string().min(1, "El distrito es requerido"),
   tipoValvula: z.string().optional(),
-  telefono: z.string().optional(),
+  telefono: z.string().min(1, "El teléfono es requerido"),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   direccionesAdicionales: z.array(direccionAdicionalSchema).optional(),
 });
 
 export const updateClienteSchema = z.object({
-  name: z.string().min(1, "El nombre es requerido").optional(),
+  name: z.string().optional(),
   documento: z.string().optional(),
   direccion: z.string().optional(),
   distrito: z.string().optional(),

@@ -149,8 +149,9 @@ export async function GET(request: Request) {
     const direccion = p.clienteDireccion
       ? [p.clienteDireccion.direccion, p.clienteDireccion.distrito].filter(Boolean).join(", ")
       : [p.cliente?.direccion, p.cliente?.distrito].filter(Boolean).join(", ");
+    const clienteName = p.cliente?.name?.trim() || "—";
     return [
-      cell(p.cliente?.name),
+      cell(clienteName),
       cell(p.cliente?.documento),
       cell(direccion),
       cell(estadoLabel(p.estado)),

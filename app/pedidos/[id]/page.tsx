@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { clienteDisplayName } from "@/lib/cliente-display-name";
 import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
 import { AlertCircleIcon } from "lucide-react";
 
@@ -260,7 +261,7 @@ export default function PedidoDetallePage() {
   return (
     <div className="min-h-screen p-6">
       <header className="flex justify-between items-center mb-6">
-        <h1 className="text-xl font-semibold">Pedido · {pedido.cliente?.name ?? "—"}</h1>
+        <h1 className="text-xl font-semibold">Pedido · {clienteDisplayName(pedido.cliente)}</h1>
       </header>
 
       <div className="max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -268,7 +269,7 @@ export default function PedidoDetallePage() {
           <h2 className="font-medium mb-3">Datos del pedido</h2>
           <dl className="grid grid-cols-2 gap-2 text-sm">
             <dt className="text-neutral-600">Cliente</dt>
-            <dd>{pedido.cliente?.name ?? "—"} {pedido.cliente?.documento ? `(${pedido.cliente.documento})` : ""}</dd>
+            <dd>{clienteDisplayName(pedido.cliente)} {pedido.cliente?.documento ? `(${pedido.cliente.documento})` : ""}</dd>
             {userRole !== "REPARTIDOR" && (
               <>
                 <dt className="text-neutral-600">Teléfono</dt>

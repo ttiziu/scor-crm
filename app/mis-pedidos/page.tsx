@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { clienteDisplayName } from "@/lib/cliente-display-name";
 import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
 import { FormaPagoBadge } from "@/components/forma-pago-badge";
 import { MapPin, Package, Truck, CheckCircle, XCircle, Copy, Check, Clock, Upload, Loader2 } from "lucide-react";
@@ -326,7 +327,7 @@ export default function MisPedidosPage() {
               <div className="p-4 sm:p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
                   <div className="min-w-0 flex-1">
-                    <h2 className="font-semibold text-neutral-900 truncate">{p.cliente.name}</h2>
+                    <h2 className="font-semibold text-neutral-900 truncate">{clienteDisplayName(p.cliente)}</h2>
                     {direccionEntrega(p) && (
                       <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                         <MapPin className="size-4 shrink-0 text-neutral-500" />

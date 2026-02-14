@@ -12,6 +12,7 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { clienteDisplayName } from "@/lib/cliente-display-name";
 import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
 import { FormaPagoBadge } from "@/components/forma-pago-badge";
 import { Pencil, Truck, CheckCircle, XCircle, ChevronLeft, ChevronRight, Eye } from "lucide-react";
@@ -373,7 +374,7 @@ function PedidosContent() {
     const c = clientes.find((x) => x.id === clienteId);
     if (c) {
       setForm((f) => ({ ...f, clienteId }));
-      setClienteSearch(`${c.name}${c.documento ? " — " + c.documento : ""}`);
+      setClienteSearch(`${clienteDisplayName(c)}${c.documento ? " — " + c.documento : ""}`);
       setFormOpen(true);
       router.replace("/pedidos", { scroll: false });
     }
@@ -675,7 +676,7 @@ function PedidosContent() {
                               onMouseDown={(e) => {
                                 e.preventDefault();
                                 setForm((f) => ({ ...f, clienteId: c.id }));
-                                setClienteSearch(`${c.name}${c.documento ? " — " + c.documento : ""}`);
+                                setClienteSearch(`${clienteDisplayName(c)}${c.documento ? " — " + c.documento : ""}`);
                                 setClientePhoneSearch(c.telefono ?? "");
                                 setPhoneSearchResults([]);
                                 setClientePhoneDropdownOpen(false);
@@ -684,7 +685,7 @@ function PedidosContent() {
                               }}
                             >
                               <span className="font-medium">{c.telefono ?? "—"}</span>
-                              <span className="text-neutral-500 ml-2">{c.name}</span>
+                              <span className="text-neutral-500 ml-2">{clienteDisplayName(c)}</span>
                             </Button>
                           ))
                         )}
@@ -714,7 +715,7 @@ function PedidosContent() {
                           <div className="px-3 py-3 text-sm text-neutral-500">Ningún cliente coincide</div>
                         ) : (
                           clientesFiltrados.map((c) => {
-                            const text = `${c.name}${c.documento ? " — " + c.documento : ""}`;
+                            const text = `${clienteDisplayName(c)}${c.documento ? " — " + c.documento : ""}`;
                             return (
                               <Button
                                 key={c.id}
@@ -1108,12 +1109,12 @@ function PedidosContent() {
                           type="button"
                           className="text-left text-sm underline decoration-dotted underline-offset-2 hover:no-underline cursor-default font-medium"
                         >
-                          {p.cliente?.name ?? "—"}
+                          {clienteDisplayName(p.cliente)}
                         </button>
                       </HoverCardTrigger>
                       <HoverCardContent side="top" align="start" className="w-72">
                         <div className="flex flex-col gap-2 text-sm">
-                          <h4 className="font-semibold text-foreground">{p.cliente?.name ?? "Cliente"}</h4>
+                          <h4 className="font-semibold text-foreground">{clienteDisplayName(p.cliente)}</h4>
                           {p.cliente?.telefono ? (
                             <p>
                               <span className="text-muted-foreground">Tel: </span>
