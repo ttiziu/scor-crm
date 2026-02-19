@@ -91,11 +91,29 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   const { id } = await params;
   const existing = await prisma.producto.findFirst({
     where: { id, tenantId },
+    include: { _count: { select: { pedidoItems: true } } },
   });
   if (!existing) {
     return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 });
   }
+  if (existing._count.pedidoItems > 0) {
+    return NextResponse.json(
+      { error: "No se puede eliminar: el producto está en pedidos. Quita el producto de los pedidos primero." },
+      { status: 400 }
+    );
+  }
 
-  await prisma.producto.delete({ where: { id } });
-  return new NextResponse(null, { status: 204 });
+  try {
+    await prisma.producto.delete({ where: { id } });
+    return new NextResponse(null, { status: 204 });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "";
+    if (msg.includes("foreign key") || msg.includes("violates foreign key")) {
+      return NextResponse.json(
+        { error: "No se puede eliminar: el producto está en pedidos." },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+  }
 }
