@@ -104,7 +104,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="flex justify-center mb-8">
           <Image
-            src="/logo/scor-logo-secundary-v2.svg"
+            src="/logo/scor-logo-secundary-v2.png"
             alt="SCOR CRM"
             width={280}
             height={200}

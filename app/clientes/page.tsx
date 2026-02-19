@@ -1,11 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { clienteDisplayName } from "@/lib/cliente-display-name";
@@ -36,6 +48,7 @@ type DirAdicional = { nombre: string; direccion: string; distrito: string; tipoV
 
 export default function ClientesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [authOk, setAuthOk] = useState(false);
@@ -59,6 +72,8 @@ export default function ClientesPage() {
   const [filtroDocumentoDebounced, setFiltroDocumentoDebounced] = useState("");
   const [filtroTelefonoDebounced, setFiltroTelefonoDebounced] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteClientePending, setDeleteClientePending] = useState<{ id: string; name: string } | null>(null);
+  const [deleteDireccionPending, setDeleteDireccionPending] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalClientes, setTotalClientes] = useState(0);
   const PAGE_SIZE = 100;
@@ -170,6 +185,17 @@ export default function ClientesPage() {
   useEffect(() => {
     if (editingId) loadClienteParaEditar(editingId);
   }, [editingId]);
+
+  useEffect(() => {
+    if (!authOk) return;
+    const crear = searchParams.get("crear");
+    const telefono = searchParams.get("telefono")?.trim();
+    if (crear === "1" && telefono) {
+      setFormOpen(true);
+      setForm((f) => ({ ...f, telefono }));
+      router.replace("/clientes");
+    }
+  }, [authOk, searchParams, router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -324,7 +350,6 @@ export default function ClientesPage() {
   }
 
   async function handleDeleteDireccion(dirId: string) {
-    if (!confirm("¿Eliminar esta dirección?")) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/clientes/${editingId}/direcciones/${dirId}`, {
@@ -332,13 +357,13 @@ export default function ClientesPage() {
         credentials: "include",
       });
       if (res.ok && editingId) loadClienteParaEditar(editingId);
+      setDeleteDireccionPending(null);
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDeleteCliente(id: string, name: string) {
-    if (!confirm(`¿Eliminar al cliente "${name}"? Se borrarán también sus direcciones y puede afectar pedidos asociados.`)) return;
     setDeletingId(id);
     try {
       const res = await fetch(`/api/clientes/${id}`, { method: "DELETE", credentials: "include" });
@@ -354,13 +379,29 @@ export default function ClientesPage() {
       toast.error("Error de conexión");
     } finally {
       setDeletingId(null);
+      setDeleteClientePending(null);
     }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Cargando…</p>
+      <div className="min-h-screen p-6">
+        <div className="flex justify-between items-center mb-6">
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-9 w-32" />
+        </div>
+        <div className="mb-4 rounded-md bg-neutral-50/50 p-3 space-y-2">
+          <Skeleton className="h-4 w-16" />
+          <div className="flex gap-3 flex-wrap">
+            <Skeleton className="h-9 w-40" />
+            <Skeleton className="h-9 w-36" />
+            <Skeleton className="h-9 w-36" />
+          </div>
+        </div>
+        <div className="mb-2">
+          <Skeleton className="h-4 w-48" />
+        </div>
+        <TableSkeleton columns={7} rows={8} />
       </div>
     );
   }
@@ -580,7 +621,7 @@ export default function ClientesPage() {
                       <span className="font-medium">{d.nombre}:</span>
                       <span>{d.direccion}{d.distrito ? `, ${d.distrito}` : ""}</span>
                       <Button type="button" variant="link" size="xs" onClick={() => { setEditDirId(d.id); setEditDirForm({ nombre: d.nombre, direccion: d.direccion, distrito: d.distrito ?? "", tipoValvula: d.tipoValvula ?? "" }); }}>Editar</Button>
-                      <Button type="button" variant="link" size="xs" onClick={() => handleDeleteDireccion(d.id)} disabled={saving} className="text-red-600">Eliminar</Button>
+                      <Button type="button" variant="link" size="xs" onClick={() => setDeleteDireccionPending(d.id)} disabled={saving} className="text-red-600">Eliminar</Button>
                     </>
                   )}
                 </li>
@@ -693,7 +734,7 @@ export default function ClientesPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleDeleteCliente(c.id, clienteDisplayName(c))}
+                        onClick={() => setDeleteClientePending({ id: c.id, name: clienteDisplayName(c) })}
                         disabled={deletingId === c.id}
                         title="Eliminar"
                       >
@@ -707,6 +748,48 @@ export default function ClientesPage() {
           </TableBody>
         </Table>
       </div>
+
+      <AlertDialog open={!!deleteClientePending} onOpenChange={(open) => !open && setDeleteClientePending(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              ¿Eliminar al cliente &quot;{deleteClientePending?.name}&quot;?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Se borrarán también sus direcciones y puede afectar pedidos asociados. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => deleteClientePending && handleDeleteCliente(deleteClientePending.id, deleteClientePending.name)}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteDireccionPending} onOpenChange={(open) => !open && setDeleteDireccionPending(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar esta dirección?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La dirección se eliminará de forma permanente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => deleteDireccionPending && editingId && handleDeleteDireccion(deleteDireccionPending)}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

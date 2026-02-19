@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Users, Building2, ShoppingCart, UserCog } from "lucide-react";
+import { Users, Building2, ShoppingCart, UserCog, CheckCircle, Ban } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NumberTicker } from "@/components/ui/number-ticker";
 import { TypingAnimation } from "@/components/ui/typing-animation";
 
@@ -102,8 +106,21 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Cargando…</p>
+      <div className="min-h-screen p-6">
+        <div className="mb-6">
+          <Skeleton className="h-6 w-48 mb-2" />
+        </div>
+        <section className="mb-8">
+          <Skeleton className="h-6 w-24 mb-4" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="border border-neutral-300 rounded-lg p-4 flex flex-col gap-2">
+                <Skeleton className="h-8 w-16" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     );
   }
@@ -154,42 +171,43 @@ export default function HomePage() {
             </div>
             <section>
               <h3 className="text-base font-medium mb-3">Últimas empresas</h3>
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-neutral-50">
-                      <th className="text-left p-3 font-medium">Empresa</th>
-                      <th className="text-right p-3 font-medium">Usuarios</th>
-                      <th className="text-right p-3 font-medium">Clientes</th>
-                      <th className="text-right p-3 font-medium">Pedidos</th>
-                      <th className="text-left p-3 font-medium">Estado</th>
-                      <th className="text-left p-3 font-medium"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
+              <div className="border border-neutral-200 rounded-lg overflow-hidden bg-white">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-neutral-50/80 hover:bg-neutral-50/80">
+                      <TableHead className="px-4">Empresa</TableHead>
+                      <TableHead className="text-right px-4 w-20 tabular-nums">Usuarios</TableHead>
+                      <TableHead className="text-right px-4 w-20 tabular-nums">Clientes</TableHead>
+                      <TableHead className="text-right px-4 w-20 tabular-nums">Pedidos</TableHead>
+                      <TableHead className="px-4">Estado</TableHead>
+                      <TableHead className="text-right px-4 w-24"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {superAdminStats.ultimasEmpresas.map((t) => (
-                      <tr key={t.id} className="border-b last:border-0">
-                        <td className="p-3 font-medium">{t.name}</td>
-                        <td className="p-3 text-right tabular-nums">{t._count.users}</td>
-                        <td className="p-3 text-right tabular-nums">{t._count.clientes}</td>
-                        <td className="p-3 text-right tabular-nums">{t._count.pedidos}</td>
-                        <td className="p-3">
-                          <span className={t.isActive ? "text-green-600" : "text-red-600"}>
+                      <TableRow key={t.id} className={!t.isActive ? "opacity-60 bg-muted/30" : ""}>
+                        <TableCell className="font-medium px-4">{t.name}</TableCell>
+                        <TableCell className="text-right px-4 tabular-nums">{t._count.users}</TableCell>
+                        <TableCell className="text-right px-4 tabular-nums">{t._count.clientes}</TableCell>
+                        <TableCell className="text-right px-4 tabular-nums">{t._count.pedidos}</TableCell>
+                        <TableCell className="px-4">
+                          <Badge variant="outline" className={t.isActive ? "border-green-300 bg-green-50 text-green-700" : "border-red-300 bg-red-50 text-red-700"}>
+                            {t.isActive ? <CheckCircle className="size-3 mr-1" /> : <Ban className="size-3 mr-1" />}
                             {t.isActive ? "Activa" : "Bloqueada"}
-                          </span>
-                        </td>
-                        <td className="p-3">
-                          <Link href="/empresas" className="text-primary hover:underline text-sm">
-                            Gestionar
-                          </Link>
-                        </td>
-                      </tr>
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right px-4">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href="/empresas">Gestionar</Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
-              <p className="mt-2">
-                <Link href="/empresas" className="text-primary hover:underline text-sm font-medium">
+              <p className="mt-3">
+                <Link href="/empresas" className="text-primary hover:underline text-sm font-medium inline-flex items-center gap-1">
                   Ver todas las empresas →
                 </Link>
               </p>

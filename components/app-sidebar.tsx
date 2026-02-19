@@ -30,11 +30,12 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { LayoutDashboard, ClipboardList, Truck, Users, Package, UserCog, LogOut, ChevronsUpDown, Building2, Check } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { LayoutDashboard, ClipboardList, Truck, Users, Package, Tag, UserCog, LogOut, ChevronsUpDown, Building2, Check, CheckCircle, Ban } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type User = { username: string; role: string } | null;
-type Tenant = { id: string; name: string; slug: string };
+type Tenant = { id: string; name: string; slug: string; isActive?: boolean };
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -92,6 +93,7 @@ export function AppSidebar() {
     { href: "/mis-pedidos", label: "Mis pedidos", icon: Truck, repartidorOnly: true, iconClass: "bg-slate-100 text-slate-600" },
     { href: "/clientes", label: "Clientes", icon: Users, iconClass: "bg-emerald-100 text-emerald-600" },
     { href: "/productos", label: "Productos", icon: Package, iconClass: "bg-violet-100 text-violet-600" },
+    { href: "/marcas", label: "Marcas", icon: Tag, iconClass: "bg-orange-100 text-orange-600" },
     { href: "/usuarios", label: "Usuarios", icon: UserCog, adminOnly: true, iconClass: "bg-indigo-100 text-indigo-600" },
   ];
 
@@ -113,7 +115,7 @@ export function AppSidebar() {
               <Link href="/" className="flex w-full items-center rounded-md">
                 <span className="relative flex h-14 w-full max-w-[240px] items-center justify-start">
                   <Image
-                    src="/logo/scor-logo-secundary-v2.svg"
+                    src="/logo/scor-logo-secundary-v2.png"
                     alt="SCOR CRM"
                     width={240}
                     height={56}
@@ -146,10 +148,26 @@ export function AppSidebar() {
                       type="button"
                       className="flex w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-ring transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2"
                     >
-                      <span className="truncate">
-                        {contextTenantId
-                          ? tenants.find((t) => t.id === contextTenantId)?.name ?? "Empresa"
-                          : "Selecciona una empresa"}
+                      <span className="flex min-w-0 items-center gap-2 truncate">
+                        {contextTenantId ? (
+                          <>
+                            {(() => {
+                              const t = tenants.find((t) => t.id === contextTenantId);
+                              const active = t?.isActive !== false;
+                              return (
+                                <>
+                                  <span className="truncate">{t?.name ?? "Empresa"}</span>
+                                  <Badge variant="outline" className={cn("shrink-0 text-[10px] px-1.5 py-0 gap-0.5", active ? "border-green-300 bg-green-50 text-green-700" : "border-red-300 bg-red-50 text-red-700")}>
+                                    {active ? <CheckCircle className="size-3" /> : <Ban className="size-3" />}
+                                    {active ? "Activa" : "Bloqueada"}
+                                  </Badge>
+                                </>
+                              );
+                            })()}
+                          </>
+                        ) : (
+                          "Selecciona una empresa"
+                        )}
                       </span>
                       <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
                     </button>
@@ -166,16 +184,25 @@ export function AppSidebar() {
                           >
                             <span className="text-muted-foreground">Sin empresa (salir)</span>
                           </CommandItem>
-                          {tenants.map((t) => (
-                            <CommandItem
-                              key={t.id}
-                              value={`${t.name} ${t.slug}`}
-                              onSelect={() => setContextTenant(t.id)}
-                            >
-                              <Check className={cn("mr-2 size-4", contextTenantId === t.id ? "opacity-100" : "opacity-0")} />
-                              {t.name}
-                            </CommandItem>
-                          ))}
+                          {tenants.map((t) => {
+                            const active = t.isActive !== false;
+                            return (
+                              <CommandItem
+                                key={t.id}
+                                value={`${t.name} ${t.slug} ${active ? "activa" : "bloqueada"}`}
+                                onSelect={() => setContextTenant(t.id)}
+                              >
+                                <Check className={cn("mr-2 size-4 shrink-0", contextTenantId === t.id ? "opacity-100" : "opacity-0")} />
+                                <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                                  <span className="truncate">{t.name}</span>
+                                  <Badge variant="outline" className={cn("shrink-0 text-[10px] px-1.5 py-0 gap-0.5", active ? "border-green-300 bg-green-50 text-green-700" : "border-red-300 bg-red-50 text-red-700")}>
+                                    {active ? <CheckCircle className="size-3" /> : <Ban className="size-3" />}
+                                    {active ? "Activa" : "Bloqueada"}
+                                  </Badge>
+                                </span>
+                              </CommandItem>
+                            );
+                          })}
                         </CommandGroup>
                       </CommandList>
                     </Command>

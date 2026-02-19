@@ -6,6 +6,18 @@ import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertCircleIcon, Pencil, Trash2 } from "lucide-react";
 
@@ -34,6 +46,7 @@ export default function UsuariosPage() {
   const [editForm, setEditForm] = useState({ username: "", name: "", role: "OPERADOR", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [showEditPassword, setShowEditPassword] = useState(false);
+  const [deleteUsuarioPending, setDeleteUsuarioPending] = useState<{ id: string; username: string | null; name: string } | null>(null);
 
   function loadUsuarios() {
     fetch("/api/usuarios", { credentials: "include" })
@@ -140,7 +153,6 @@ export default function UsuariosPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar este usuario?")) return;
     try {
       const res = await fetch(`/api/usuarios/${id}`, {
         method: "DELETE",
@@ -153,13 +165,22 @@ export default function UsuariosPage() {
       }
     } catch {
       setError("Error de conexión");
+    } finally {
+      setDeleteUsuarioPending(null);
     }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Cargando…</p>
+      <div className="min-h-screen p-6">
+        <div className="flex justify-between items-center mb-6">
+          <Skeleton className="h-8 w-28" />
+          <Skeleton className="h-9 w-36" />
+        </div>
+        <div className="mb-2">
+          <Skeleton className="h-4 w-48" />
+        </div>
+        <TableSkeleton columns={4} rows={6} />
       </div>
     );
   }
@@ -378,7 +399,7 @@ export default function UsuariosPage() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => handleDelete(u.id)}
+                            onClick={() => setDeleteUsuarioPending({ id: u.id, username: u.username, name: u.name })}
                             title="Eliminar"
                           >
                             <Trash2 className="size-4" />
@@ -393,6 +414,28 @@ export default function UsuariosPage() {
           </TableBody>
         </Table>
       </div>
+
+      <AlertDialog open={!!deleteUsuarioPending} onOpenChange={(open) => !open && setDeleteUsuarioPending(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar este usuario?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteUsuarioPending && (
+                <>Se eliminará &quot;{deleteUsuarioPending.username ?? deleteUsuarioPending.name}&quot;. Esta acción no se puede deshacer.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => deleteUsuarioPending && handleDelete(deleteUsuarioPending.id)}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

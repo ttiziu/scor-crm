@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,17 +18,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Tag } from "lucide-react";
 
-type Producto = {
+type Marca = {
   id: string;
   name: string;
-  createdAt: string;
 };
 
-export default function ProductosPage() {
+export default function MarcasPage() {
   const router = useRouter();
-  const [productos, setProductos] = useState<Producto[]>([]);
+  const [marcas, setMarcas] = useState<Marca[]>([]);
   const [loading, setLoading] = useState(true);
   const [authOk, setAuthOk] = useState(false);
   const [userRole, setUserRole] = useState("");
@@ -39,13 +37,13 @@ export default function ProductosPage() {
   const [form, setForm] = useState({ name: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
-  const [deleteProductoPending, setDeleteProductoPending] = useState<{ id: string; name: string } | null>(null);
+  const [deleteMarcaPending, setDeleteMarcaPending] = useState<{ id: string; name: string } | null>(null);
 
-  function loadProductos() {
-    fetch("/api/productos", { credentials: "include" })
+  function loadMarcas() {
+    fetch("/api/marcas", { credentials: "include" })
       .then((res) => res.json())
-      .then((data) => (Array.isArray(data) ? setProductos(data) : setProductos([])))
-      .catch(() => setProductos([]));
+      .then((data) => (Array.isArray(data) ? setMarcas(data) : setMarcas([])))
+      .catch(() => setMarcas([]));
   }
 
   function fetchMe() {
@@ -66,7 +64,7 @@ export default function ProductosPage() {
           setAuthOk(true);
           setUserRole(data.user.role ?? "");
           setContextTenantId(data.contextTenantId ?? null);
-          loadProductos();
+          loadMarcas();
         }
       })
       .catch(() => router.replace("/login"));
@@ -78,7 +76,7 @@ export default function ProductosPage() {
 
   useEffect(() => {
     const onContextChange = () => {
-      fetchMe().then(() => loadProductos());
+      fetchMe().then(() => loadMarcas());
     };
     window.addEventListener("scor-context-tenant-changed", onContextChange);
     return () => window.removeEventListener("scor-context-tenant-changed", onContextChange);
@@ -88,12 +86,12 @@ export default function ProductosPage() {
     e.preventDefault();
     const nameTrim = form.name.trim();
     if (!nameTrim) {
-      toast.error("El nombre del producto es requerido");
+      toast.error("El nombre de la marca es requerido");
       return;
     }
     setSaving(true);
     try {
-      const res = await fetch("/api/productos", {
+      const res = await fetch("/api/marcas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -101,13 +99,13 @@ export default function ProductosPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? "Error al crear producto");
+        toast.error(data.error ?? "Error al crear marca");
         return;
       }
-      toast.success("Producto creado");
+      toast.success("Marca creada");
       setForm({ name: "" });
       setFormOpen(false);
-      loadProductos();
+      loadMarcas();
     } catch {
       toast.error("Error de conexión");
     } finally {
@@ -118,12 +116,12 @@ export default function ProductosPage() {
   async function handleUpdate(id: string) {
     const nameTrim = editName.trim();
     if (!nameTrim) {
-      toast.error("El nombre del producto es requerido");
+      toast.error("El nombre de la marca es requerido");
       return;
     }
     setSaving(true);
     try {
-      const res = await fetch(`/api/productos/${id}`, {
+      const res = await fetch(`/api/marcas/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -134,10 +132,10 @@ export default function ProductosPage() {
         toast.error(data.error ?? "Error al actualizar");
         return;
       }
-      toast.success("Producto actualizado");
+      toast.success("Marca actualizada");
       setEditingId(null);
       setEditName("");
-      loadProductos();
+      loadMarcas();
     } catch {
       toast.error("Error de conexión");
     } finally {
@@ -148,14 +146,14 @@ export default function ProductosPage() {
   async function handleDelete(id: string) {
     setSaving(true);
     try {
-      const res = await fetch(`/api/productos/${id}`, {
+      const res = await fetch(`/api/marcas/${id}`, {
         method: "DELETE",
         credentials: "include",
       });
       if (res.ok) {
         setEditingId(null);
-        loadProductos();
-        toast.success("Producto eliminado");
+        loadMarcas();
+        toast.success("Marca eliminada");
       } else {
         const data = await res.json().catch(() => ({}));
         toast.error(data.error ?? "No se pudo eliminar");
@@ -164,7 +162,7 @@ export default function ProductosPage() {
       toast.error("Error de conexión");
     } finally {
       setSaving(false);
-      setDeleteProductoPending(null);
+      setDeleteMarcaPending(null);
     }
   }
 
@@ -195,9 +193,12 @@ export default function ProductosPage() {
   return (
     <div className="min-h-screen p-6">
       <header className="flex flex-wrap justify-between items-center gap-4 mb-6">
-        <h1 className="text-xl font-semibold">Productos</h1>
+        <h1 className="text-xl font-semibold flex items-center gap-2">
+          <Tag className="size-5 text-muted-foreground" />
+          Marcas
+        </h1>
         <Button type="button" size="sm" onClick={() => setFormOpen(!formOpen)}>
-          {formOpen ? "Cerrar formulario" : "Nuevo producto"}
+          {formOpen ? "Cerrar formulario" : "Nueva marca"}
         </Button>
       </header>
 
@@ -206,12 +207,15 @@ export default function ProductosPage() {
           <div className="mt-4 max-w-2xl">
             <div className="rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
               <div className="p-6">
-                <h2 className="text-lg font-semibold text-neutral-900 mb-5">Nuevo producto</h2>
+                <h2 className="text-lg font-semibold text-neutral-900 mb-5">Nueva marca</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Las marcas representan los balones que vendes (ej. Solgas, Limagas, Caserito). Cada empresa puede tener sus propias marcas.
+                </p>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-neutral-700 mb-1.5">Nombre *</label>
                     <input
-                      placeholder="Ej. Balón 10 kg"
+                      placeholder="Ej. Solgas, Limagas, Caserito"
                       value={form.name}
                       onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                       className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
@@ -230,9 +234,13 @@ export default function ProductosPage() {
         )}
       </div>
 
-      {productos.length === 100 && (
-        <p className="text-sm text-neutral-600 mb-2">Mostrando últimos 100 productos.</p>
-      )}
+      <div className="mb-2">
+        <p className="text-sm text-muted-foreground">
+          {marcas.length === 0
+            ? "No hay marcas. Agrega las marcas de balón que vendes."
+            : `${marcas.length} marca${marcas.length === 1 ? "" : "s"}.`}
+        </p>
+      </div>
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -242,17 +250,17 @@ export default function ProductosPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {productos.length === 0 ? (
+            {marcas.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
-                  No hay productos. Agrega algunos o ejecuta el seed.
+                  No hay marcas. Agrega las marcas de balón que ofrece tu negocio.
                 </TableCell>
               </TableRow>
             ) : (
-              productos.map((p) => (
-                <TableRow key={p.id}>
+              marcas.map((m) => (
+                <TableRow key={m.id}>
                   <TableCell>
-                    {editingId === p.id ? (
+                    {editingId === m.id ? (
                       <input
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
@@ -260,17 +268,17 @@ export default function ProductosPage() {
                         autoFocus
                       />
                     ) : (
-                      p.name
+                      m.name
                     )}
                   </TableCell>
                   <TableCell>
-                    {editingId === p.id ? (
+                    {editingId === m.id ? (
                       <>
                         <Button
                           type="button"
                           variant="link"
                           size="sm"
-                          onClick={() => handleUpdate(p.id)}
+                          onClick={() => handleUpdate(m.id)}
                           disabled={saving}
                           className="mr-2"
                         >
@@ -292,7 +300,7 @@ export default function ProductosPage() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100"
-                          onClick={() => { setEditingId(p.id); setEditName(p.name); }}
+                          onClick={() => { setEditingId(m.id); setEditName(m.name); }}
                           title="Editar"
                         >
                           <Pencil className="size-4" />
@@ -302,8 +310,8 @@ export default function ProductosPage() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => setDeleteProductoPending({ id: p.id, name: p.name })}
-                          disabled={saving || !!deleteProductoPending}
+                          onClick={() => setDeleteMarcaPending({ id: m.id, name: m.name })}
+                          disabled={saving || !!deleteMarcaPending}
                           title="Eliminar"
                         >
                           {saving ? <Spinner className="size-4" /> : <Trash2 className="size-4" />}
@@ -318,19 +326,19 @@ export default function ProductosPage() {
         </Table>
       </div>
 
-      <AlertDialog open={!!deleteProductoPending} onOpenChange={(open) => !open && setDeleteProductoPending(null)}>
+      <AlertDialog open={!!deleteMarcaPending} onOpenChange={(open) => !open && setDeleteMarcaPending(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar este producto?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar esta marca?</AlertDialogTitle>
             <AlertDialogDescription>
-              &quot;{deleteProductoPending?.name}&quot; se eliminará de forma permanente. Los pedidos que lo usen podrían verse afectados.
+              &quot;{deleteMarcaPending?.name}&quot; se eliminará. Los pedidos que la usen quedarán sin marca asignada.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              onClick={() => deleteProductoPending && handleDelete(deleteProductoPending.id)}
+              onClick={() => deleteMarcaPending && handleDelete(deleteMarcaPending.id)}
             >
               Eliminar
             </AlertDialogAction>

@@ -16,7 +16,7 @@ export const createPedidoSchema = z.object({
   cantidad: z.number().int().min(0).optional(),
   observaciones: z.string().optional(),
   fechaProgramada: z.string().optional(),
-  repartidorId: z.string().optional().nullable(),
+  repartidorId: z.string().min(1, "El repartidor es requerido"),
   clienteDireccionId: z.string().optional().nullable(),
   formaPago: formaPagoEnum.optional().nullable(),
   efectivoCon: z.number().min(0).optional().nullable(),

@@ -6,16 +6,24 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { clienteDisplayName } from "@/lib/cliente-display-name";
 import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
 import { FormaPagoBadge } from "@/components/forma-pago-badge";
-import { Pencil, Truck, CheckCircle, XCircle, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { Pencil, Truck, CheckCircle, XCircle, ChevronLeft, ChevronRight, Eye, RefreshCw, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { es as esDateFns } from "date-fns/locale";
+import { es as esDayPicker } from "react-day-picker/locale";
+import type { DateRange } from "react-day-picker";
 
 type Cliente = { id: string; name: string; documento?: string | null; telefono?: string | null };
 type ClienteDireccion = { id: string; nombre: string; direccion: string; distrito: string | null };
@@ -40,6 +48,7 @@ type Pedido = {
   fechaPedido: string;
   fechaProgramada: string | null;
   repartidorId: string | null;
+  asignadoEn?: string | null;
   formaPago: string | null;
   efectivoCon: number | string | null;
   motivoCancelacion: string | null;
@@ -525,6 +534,14 @@ function PedidosContent() {
       toast.error("Indica con cuánto paga (efectivo)");
       return;
     }
+    if (repartidores.length === 0) {
+      toast.error("Debes crear al menos un repartidor en Usuarios para poder registrar pedidos");
+      return;
+    }
+    if (!form.repartidorId?.trim()) {
+      toast.error("Selecciona un repartidor");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/pedidos", {
@@ -607,8 +624,23 @@ function PedidosContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Cargando…</p>
+      <div className="min-h-screen p-6">
+        <div className="flex justify-between items-center mb-6">
+          <Skeleton className="h-8 w-28" />
+          <Skeleton className="h-9 w-32" />
+        </div>
+        <div className="mb-4 rounded-lg border border-neutral-200 bg-neutral-50/50 p-3 space-y-2">
+          <Skeleton className="h-4 w-16" />
+          <div className="flex gap-3 flex-wrap">
+            <Skeleton className="h-9 w-36" />
+            <Skeleton className="h-9 w-36" />
+            <Skeleton className="h-9 w-24" />
+          </div>
+        </div>
+        <div className="mb-2">
+          <Skeleton className="h-4 w-56" />
+        </div>
+        <TableSkeleton columns={9} rows={8} />
       </div>
     );
   }
@@ -662,8 +694,19 @@ function PedidosContent() {
                         {phoneSearching ? (
                           <div className="px-3 py-3 text-sm text-neutral-500">Buscando…</div>
                         ) : phoneSearchResults.length === 0 ? (
-                          <div className="px-3 py-3 text-sm text-neutral-500">
-                            {clientePhoneSearch.trim().length >= 2 ? "Ningún cliente con ese número" : "Escribe al menos 2 dígitos"}
+                          <div className="px-3 py-3 space-y-2">
+                            <p className="text-sm text-neutral-500">
+                              {clientePhoneSearch.trim().length >= 2 ? "Ningún cliente con ese número" : "Escribe al menos 2 dígitos"}
+                            </p>
+                            {clientePhoneSearch.trim().length >= 2 && (
+                              <Link
+                                href={`/clientes?crear=1&telefono=${encodeURIComponent(clientePhoneSearch.trim())}`}
+                                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                                onClick={() => setClientePhoneDropdownOpen(false)}
+                              >
+                                Crear cliente con este número →
+                              </Link>
+                            )}
                           </div>
                         ) : (
                           phoneSearchResults.map((c) => (
@@ -777,15 +820,17 @@ function PedidosContent() {
                       title="Haz clic para abrir el calendario"
                     />
                   </div>
-                  {isAdmin && (
+                  {repartidores.length > 0 ? (
                     <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">Repartidor</label>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+                        Repartidor <span className="text-red-500">*</span>
+                      </label>
                       <select
                         value={form.repartidorId}
                         onChange={(e) => setForm((f) => ({ ...f, repartidorId: e.target.value }))}
                         className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
                       >
-                        <option value="">Sin asignar</option>
+                        <option value="">Seleccionar repartidor</option>
                         {repartidores.map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.name}
@@ -793,6 +838,10 @@ function PedidosContent() {
                         ))}
                       </select>
                     </div>
+                  ) : (
+                    <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      Debes crear al menos un repartidor en Usuarios para poder registrar pedidos.
+                    </p>
                   )}
                 </div>
 
@@ -887,6 +936,22 @@ function PedidosContent() {
                       </div>
                     ))}
                   </div>
+                  {(() => {
+                    const total = form.lineas.reduce((sum, l) => {
+                      const cant = parseInt(l.cantidad, 10);
+                      const precio = Number(l.precioUnitario);
+                      if (!isNaN(cant) && cant > 0 && !isNaN(precio) && precio >= 0) return sum + cant * precio;
+                      return sum;
+                    }, 0);
+                    if (total > 0) {
+                      return (
+                        <p className="mt-2 text-sm font-medium text-neutral-800">
+                          Total: <span className="tabular-nums">S/ {total.toFixed(2)}</span>
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 <div>
@@ -901,7 +966,7 @@ function PedidosContent() {
                 </div>
 
                 <div className="pt-1">
-                  <Button type="submit" disabled={saving} size="sm" className="rounded-lg px-5">
+                  <Button type="submit" disabled={saving || repartidores.length === 0} size="sm" className="rounded-lg px-5">
                     {saving && <Spinner data-icon="inline-start" />}
                     {saving ? "Guardando…" : "Guardar"}
                   </Button>
@@ -915,31 +980,49 @@ function PedidosContent() {
       <div className="mb-4 p-3 border border-neutral-200 rounded-lg bg-neutral-50/50">
         <p className="text-sm font-medium text-neutral-700 mb-2">Filtros</p>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1 flex-wrap">
-            <label className="text-sm">Desde:</label>
-            <input
-              type="date"
-              value={fechaDesde}
-              onChange={(e) => {
-                const v = e.target.value;
-                setFechaDesde(v);
-                if (v && fechaHasta && v > fechaHasta) setFechaHasta(v);
-              }}
-              className="border rounded px-2 py-1.5 text-sm scheme-light"
-              title="Inicio del rango"
-            />
-            <label className="text-sm">Hasta:</label>
-            <input
-              type="date"
-              value={fechaHasta}
-              onChange={(e) => {
-                const v = e.target.value;
-                setFechaHasta(v);
-                if (v && fechaDesde && v < fechaDesde) setFechaDesde(v);
-              }}
-              className="border rounded px-2 py-1.5 text-sm scheme-light"
-              title="Fin del rango"
-            />
+          <div className="flex gap-2 flex-wrap items-center">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="justify-start px-2.5 font-normal min-w-[220px] gap-2"
+                >
+                  <CalendarIcon className="size-4 shrink-0" />
+                  {fechaDesde && fechaHasta ? (
+                    <span className="truncate">
+                      {format(new Date(fechaDesde + "T00:00:00"), "dd MMM yyyy", { locale: esDateFns })} - {format(new Date(fechaHasta + "T00:00:00"), "dd MMM yyyy", { locale: esDateFns })}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">Seleccionar rango</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="range"
+                  defaultMonth={fechaDesde ? new Date(fechaDesde + "T00:00:00") : undefined}
+                  selected={
+                    fechaDesde && fechaHasta
+                      ? { from: new Date(fechaDesde + "T00:00:00"), to: new Date(fechaHasta + "T00:00:00") }
+                      : undefined
+                  }
+                  onSelect={(range: DateRange | undefined) => {
+                    if (range?.from) {
+                      const from = format(range.from, "yyyy-MM-dd");
+                      const to = range.to ? format(range.to, "yyyy-MM-dd") : from;
+                      setFechaDesde(from);
+                      setFechaHasta(to);
+                    } else {
+                      setFechaDesde("");
+                      setFechaHasta("");
+                    }
+                  }}
+                  numberOfMonths={2}
+                  locale={esDayPicker}
+                />
+              </PopoverContent>
+            </Popover>
             <Button type="button" variant="outline" size="sm" onClick={() => { setFechaDesde(todayISO()); setFechaHasta(todayISO()); }}>Hoy</Button>
             <Button type="button" variant="outline" size="sm" onClick={() => { setFechaDesde(""); setFechaHasta(""); }}>Todas</Button>
           </div>
@@ -990,7 +1073,7 @@ function PedidosContent() {
             onClick={loadPedidos}
             title="Actualizar lista (p. ej. si el repartidor marcó En ruta o Entregado)"
           >
-            Actualizar
+            <RefreshCw className="size-4" />
           </Button>
             <Button
             type="button"
@@ -1189,7 +1272,30 @@ function PedidosContent() {
                   </TableCell>
                   <TableCell>{formatDate(p.fechaPedido)}</TableCell>
                   <TableCell>{formatDate(p.fechaProgramada)}</TableCell>
-                  <TableCell>{p.repartidor?.name ?? "—"}</TableCell>
+                  <TableCell>
+                    {p.repartidor && (p.asignadoEn != null) ? (
+                      <HoverCard openDelay={200} closeDelay={100}>
+                        <HoverCardTrigger asChild>
+                          <button
+                            type="button"
+                            className="text-left text-sm underline decoration-dotted underline-offset-2 hover:no-underline cursor-default"
+                          >
+                            {p.repartidor.name}
+                          </button>
+                        </HoverCardTrigger>
+                        <HoverCardContent side="top" align="start" className="w-56">
+                          <div className="space-y-1 text-sm">
+                            <p className="font-medium">{p.repartidor?.name}</p>
+                            <p className="text-muted-foreground">
+                              Asignado a las {new Date(p.asignadoEn).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                            </p>
+                          </div>
+                        </HoverCardContent>
+                      </HoverCard>
+                    ) : (
+                      p.repartidor?.name ?? "—"
+                    )}
+                  </TableCell>
                   <TableCell>
                     <span className="inline-flex items-center gap-1.5">
                       <FormaPagoBadge formaPago={p.formaPago} efectivoCon={p.efectivoCon} />
@@ -1271,9 +1377,28 @@ function PedidosContent() {
   );
 }
 
+function PedidosSkeletonFallback() {
+  return (
+    <div className="min-h-screen p-6">
+      <div className="flex justify-between items-center mb-6">
+        <Skeleton className="h-8 w-28" />
+        <Skeleton className="h-9 w-32" />
+      </div>
+      <div className="mb-4 rounded-lg border border-neutral-200 bg-neutral-50/50 p-3 space-y-2">
+        <Skeleton className="h-4 w-16" />
+        <div className="flex gap-3 flex-wrap">
+          <Skeleton className="h-9 w-36" />
+          <Skeleton className="h-9 w-36" />
+        </div>
+      </div>
+      <TableSkeleton columns={9} rows={8} />
+    </div>
+  );
+}
+
 export default function PedidosPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center"><Spinner /></div>}>
+    <Suspense fallback={<PedidosSkeletonFallback />}>
       <PedidosContent />
     </Suspense>
   );

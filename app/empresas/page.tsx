@@ -16,6 +16,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Dialog,
@@ -177,8 +179,18 @@ export default function EmpresasPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Cargando…</p>
+      <div className="min-h-screen p-6">
+        <div className="flex justify-between items-center mb-6 gap-4 flex-wrap">
+          <Skeleton className="h-8 w-32" />
+          <div className="flex gap-3">
+            <Skeleton className="h-10 w-64" />
+            <Skeleton className="h-10 w-36" />
+          </div>
+        </div>
+        <div className="mb-2">
+          <Skeleton className="h-4 w-40" />
+        </div>
+        <TableSkeleton columns={6} rows={6} />
       </div>
     );
   }
