@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,26 @@ type Cliente = {
 
 type DirAdicional = { nombre: string; direccion: string; distrito: string; tipoValvula: string };
 
-export default function ClientesPage() {
+function ClientesPageSkeleton() {
+  return (
+    <div className="min-h-screen p-6">
+      <div className="mb-6">
+        <Skeleton className="h-6 w-32 mb-4" />
+        <div className="flex gap-3 flex-wrap">
+          <Skeleton className="h-9 w-40" />
+          <Skeleton className="h-9 w-36" />
+          <Skeleton className="h-9 w-36" />
+        </div>
+      </div>
+      <div className="mb-2">
+        <Skeleton className="h-4 w-48" />
+      </div>
+      <TableSkeleton columns={7} rows={8} />
+    </div>
+  );
+}
+
+function ClientesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -791,5 +810,13 @@ export default function ClientesPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+export default function ClientesPage() {
+  return (
+    <Suspense fallback={<ClientesPageSkeleton />}>
+      <ClientesPageContent />
+    </Suspense>
   );
 }
