@@ -102,6 +102,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 }
 
+/** Eliminar usuario. ADMIN solo puede eliminar usuarios de su empresa. SUPER_ADMIN puede eliminar de la empresa en contexto. */
 export async function DELETE(request: Request, { params }: RouteParams) {
   const session = await getSession(request);
   if (!session) {

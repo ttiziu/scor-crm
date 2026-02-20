@@ -71,6 +71,7 @@ export default function EmpresasPage() {
   const [newUserForm, setNewUserForm] = useState({ username: "", name: "", password: "", role: "OPERADOR" as string });
   const [newUserSaving, setNewUserSaving] = useState(false);
   const [roleChangingId, setRoleChangingId] = useState<string | null>(null);
+  const [deleteUserPending, setDeleteUserPending] = useState<{ id: string; username: string | null; name: string } | null>(null);
 
   const filteredTenants = tenants.filter(
     (t) =>
@@ -422,7 +423,7 @@ export default function EmpresasPage() {
         </Table>
       </div>
 
-      <Sheet open={!!usersSheetTenant} onOpenChange={(open) => !open && (setUsersSheetTenant(null), setUsersData(null), setResetUser(null), setNewUserOpen(false))}>
+      <Sheet open={!!usersSheetTenant} onOpenChange={(open) => !open && (setUsersSheetTenant(null), setUsersData(null), setResetUser(null), setNewUserOpen(false), setDeleteUserPending(null))}>
         <SheetContent side="right" className="sm:max-w-md">
           <SheetHeader>
             <SheetTitle>Usuarios de {usersSheetTenant?.name ?? ""}</SheetTitle>
@@ -509,6 +510,15 @@ export default function EmpresasPage() {
                     >
                       <KeyRound className="size-4 mr-1" />
                       Resetear
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => setDeleteUserPending({ id: u.id, username: u.username, name: u.name })}
+                      title="Eliminar usuario"
+                    >
+                      <Trash2 className="size-4" />
                     </Button>
                   </div>
                 ))
@@ -645,6 +655,52 @@ export default function EmpresasPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteUserPending} onOpenChange={(open) => !open && setDeleteUserPending(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar este usuario?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteUserPending && (
+                <>
+                  Se eliminará &quot;{deleteUserPending.username ?? deleteUserPending.name}&quot; de la empresa. Esta acción no se puede deshacer.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={async () => {
+                if (!deleteUserPending || !usersSheetTenant) return;
+                try {
+                  const res = await fetch(`/api/admin/users/${deleteUserPending.id}`, { method: "DELETE", credentials: "include" });
+                  if (res.status === 204) {
+                    toast.success("Usuario eliminado");
+                    setDeleteUserPending(null);
+                    setUsersLoading(true);
+                    fetch(`/api/admin/tenants/${usersSheetTenant.id}/users`, { credentials: "include" })
+                      .then((r) => (r.ok ? r.json() : null))
+                      .then((d) => setUsersData(d))
+                      .catch(() => {})
+                      .finally(() => setUsersLoading(false));
+                  } else {
+                    const d = await res.json().catch(() => ({}));
+                    toast.error(d.error ?? "Error al eliminar");
+                  }
+                } catch {
+                  toast.error("Error de conexión");
+                } finally {
+                  setDeleteUserPending(null);
+                }
+              }}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={!!resetUser} onOpenChange={(open) => !open && (setResetUser(null), setResetPassword(""))}>
         <DialogContent className="sm:max-w-md">

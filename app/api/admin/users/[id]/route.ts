@@ -73,3 +73,36 @@ export async function PATCH(
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }
+
+/** Eliminar usuario de una empresa. Solo SUPER_ADMIN. */
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getSession(request);
+  if (!session) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  if (session.role !== "SUPER_ADMIN") {
+    return NextResponse.json({ error: "Solo el super administrador puede eliminar usuarios" }, { status: 403 });
+  }
+
+  const { id: userId } = await params;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, tenant: { select: { slug: true } } },
+  });
+  if (!user) {
+    return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+  }
+  if (user.id === session.userId) {
+    return NextResponse.json({ error: "No puedes eliminarte a ti mismo" }, { status: 400 });
+  }
+  if (user.tenant.slug === "platform") {
+    return NextResponse.json({ error: "No se pueden eliminar usuarios de la plataforma" }, { status: 400 });
+  }
+
+  await prisma.user.delete({ where: { id: userId } });
+  return new NextResponse(null, { status: 204 });
+}

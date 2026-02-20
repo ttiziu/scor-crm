@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { clienteDisplayName } from "@/lib/cliente-display-name";
 import { ChevronLeft, ChevronRight, ShoppingCart, Pencil, Trash2 } from "lucide-react";
@@ -602,59 +603,152 @@ function ClientesPageContent() {
         </div>
       </div>
 
-      {editingId && (
-        <div className="mb-6 p-4 border rounded bg-neutral-50 max-w-2xl">
-          <h2 className="font-medium mb-3">Editar cliente</h2>
-          <form onSubmit={handleUpdateCliente} className="space-y-3">
-            <input placeholder="Nombre (opcional, vacío = Cliente N por orden)" value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} className="w-full border rounded px-3 py-2" />
-            <input placeholder="Documento" value={editForm.documento} onChange={(e) => setEditForm((f) => ({ ...f, documento: e.target.value }))} className="w-full border rounded px-3 py-2" />
-            <input placeholder="Dirección principal" value={editForm.direccion} onChange={(e) => setEditForm((f) => ({ ...f, direccion: e.target.value }))} className="w-full border rounded px-3 py-2" />
-            <input placeholder="Distrito" value={editForm.distrito} onChange={(e) => setEditForm((f) => ({ ...f, distrito: e.target.value }))} className="w-full border rounded px-3 py-2" />
-            <input list="tipoValvula-list-edit" placeholder="Tipo de válvula (ej. Normal, Premium)" value={editForm.tipoValvula} onChange={(e) => setEditForm((f) => ({ ...f, tipoValvula: e.target.value }))} className="w-full border rounded px-3 py-2" />
-            <datalist id="tipoValvula-list-edit">{opcionesTipoValvula.map((o) => <option key={o} value={o} />)}</datalist>
-            <input placeholder="Teléfono" value={editForm.telefono} onChange={(e) => setEditForm((f) => ({ ...f, telefono: e.target.value }))} className="w-full border rounded px-3 py-2" />
-            <input type="email" placeholder="Email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} className="w-full border rounded px-3 py-2" />
-            <div className="flex gap-2">
-              <Button type="submit" disabled={saving} size="sm">
-                {saving && <Spinner data-icon="inline-start" />}
-                Guardar cliente
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => setEditingId(null)}>Cerrar</Button>
+      <Sheet
+        open={!!editingId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingId(null);
+            setEditDirId(null);
+            setDeleteDireccionPending(null);
+          }
+        }}
+      >
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-3xl md:max-w-4xl lg:max-w-5xl overflow-y-auto flex flex-col p-0"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <SheetHeader className="pb-4 border-b shrink-0 px-6 pt-6">
+            <SheetTitle className="text-lg pr-8">
+              Editar cliente
+            </SheetTitle>
+          </SheetHeader>
+          {editingId && (
+            <div className="mt-4 flex-1 overflow-y-auto px-6 pb-6">
+              <form onSubmit={handleUpdateCliente} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Nombre</label>
+                    <input
+                      placeholder="Opcional (vacío = Cliente N por orden)"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                      className="w-full border border-neutral-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Documento</label>
+                    <input
+                      placeholder="Documento"
+                      value={editForm.documento}
+                      onChange={(e) => setEditForm((f) => ({ ...f, documento: e.target.value }))}
+                      className="w-full border border-neutral-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1.5">Dirección principal</label>
+                  <input
+                    placeholder="Dirección"
+                    value={editForm.direccion}
+                    onChange={(e) => setEditForm((f) => ({ ...f, direccion: e.target.value }))}
+                    className="w-full border border-neutral-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Distrito</label>
+                    <input
+                      placeholder="Distrito"
+                      value={editForm.distrito}
+                      onChange={(e) => setEditForm((f) => ({ ...f, distrito: e.target.value }))}
+                      className="w-full border border-neutral-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Tipo de válvula</label>
+                    <input
+                      list="tipoValvula-list-edit"
+                      placeholder="Ej. Normal, Premium"
+                      value={editForm.tipoValvula}
+                      onChange={(e) => setEditForm((f) => ({ ...f, tipoValvula: e.target.value }))}
+                      className="w-full border border-neutral-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                    />
+                    <datalist id="tipoValvula-list-edit">{opcionesTipoValvula.map((o) => <option key={o} value={o} />)}</datalist>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Teléfono</label>
+                    <input
+                      placeholder="Teléfono"
+                      value={editForm.telefono}
+                      onChange={(e) => setEditForm((f) => ({ ...f, telefono: e.target.value }))}
+                      className="w-full border border-neutral-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Email</label>
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                      className="w-full border border-neutral-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50"
+                    />
+                  </div>
+                </div>
+                <div className="pt-2">
+                  <Button type="submit" disabled={saving} size="default" className="min-w-[140px]">
+                    {saving && <Spinner data-icon="inline-start" />}
+                    Guardar cliente
+                  </Button>
+                </div>
+              </form>
+              <div className="mt-6 pt-6 border-t border-neutral-200">
+                <h3 className="text-sm font-medium text-neutral-700 mb-3">Direcciones adicionales</h3>
+                <ul className="space-y-3 mb-4">
+                  {direcciones.map((d) => (
+                    <li key={d.id} className="flex items-center gap-3 flex-wrap p-3 rounded-lg bg-neutral-50/80 text-sm">
+                      {editDirId === d.id ? (
+                        <>
+                          <input value={editDirForm.nombre} onChange={(e) => setEditDirForm((f) => ({ ...f, nombre: e.target.value }))} placeholder="Nombre" className="border border-neutral-200 rounded-lg px-3 py-2 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-neutral-400/50" />
+                          <input value={editDirForm.direccion} onChange={(e) => setEditDirForm((f) => ({ ...f, direccion: e.target.value }))} placeholder="Dirección" className="border border-neutral-200 rounded-lg px-3 py-2 text-sm flex-1 min-w-[160px] focus:outline-none focus:ring-2 focus:ring-neutral-400/50" />
+                          <input value={editDirForm.distrito} onChange={(e) => setEditDirForm((f) => ({ ...f, distrito: e.target.value }))} placeholder="Distrito" className="border border-neutral-200 rounded-lg px-3 py-2 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-neutral-400/50" />
+                          <Button type="button" variant="outline" size="sm" onClick={() => handleUpdateDireccion(d.id)} disabled={saving}>Guardar</Button>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => setEditDirId(null)}>Cancelar</Button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-medium">{d.nombre}:</span>
+                          <span className="text-neutral-600">{d.direccion}{d.distrito ? `, ${d.distrito}` : ""}</span>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => { setEditDirId(d.id); setEditDirForm({ nombre: d.nombre, direccion: d.direccion, distrito: d.distrito ?? "", tipoValvula: d.tipoValvula ?? "" }); }}>Editar</Button>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => setDeleteDireccionPending(d.id)} disabled={saving} className="text-red-600 hover:text-red-700">Eliminar</Button>
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <form onSubmit={handleAddDireccion} className="flex gap-3 flex-wrap items-end">
+                  <div className="min-w-[120px]">
+                    <label className="block text-xs font-medium text-neutral-600 mb-1">Nombre</label>
+                    <input value={nuevaDir.nombre} onChange={(e) => setNuevaDir((f) => ({ ...f, nombre: e.target.value }))} placeholder="Ej. Sucursal 2" className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50" required />
+                  </div>
+                  <div className="flex-1 min-w-[180px]">
+                    <label className="block text-xs font-medium text-neutral-600 mb-1">Dirección</label>
+                    <input value={nuevaDir.direccion} onChange={(e) => setNuevaDir((f) => ({ ...f, direccion: e.target.value }))} placeholder="Dirección completa" className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50" required />
+                  </div>
+                  <div className="min-w-[100px]">
+                    <label className="block text-xs font-medium text-neutral-600 mb-1">Distrito</label>
+                    <input value={nuevaDir.distrito} onChange={(e) => setNuevaDir((f) => ({ ...f, distrito: e.target.value }))} placeholder="Distrito" className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400/50" />
+                  </div>
+                  <Button type="submit" disabled={saving} size="sm">Agregar</Button>
+                </form>
+              </div>
             </div>
-          </form>
-          <div className="mt-4">
-            <h3 className="text-sm font-medium mb-2">Direcciones adicionales</h3>
-            <ul className="space-y-2 mb-3">
-              {direcciones.map((d) => (
-                <li key={d.id} className="flex items-center gap-2 flex-wrap text-sm">
-                  {editDirId === d.id ? (
-                    <>
-                      <input value={editDirForm.nombre} onChange={(e) => setEditDirForm((f) => ({ ...f, nombre: e.target.value }))} placeholder="Nombre" className="border rounded px-2 py-1 w-28" />
-                      <input value={editDirForm.direccion} onChange={(e) => setEditDirForm((f) => ({ ...f, direccion: e.target.value }))} placeholder="Dirección" className="border rounded px-2 py-1 flex-1 min-w-[160px]" />
-                      <input value={editDirForm.distrito} onChange={(e) => setEditDirForm((f) => ({ ...f, distrito: e.target.value }))} placeholder="Distrito" className="border rounded px-2 py-1 w-24" />
-                      <Button type="button" variant="link" size="xs" onClick={() => handleUpdateDireccion(d.id)} disabled={saving}>Guardar</Button>
-                      <Button type="button" variant="link" size="xs" onClick={() => setEditDirId(null)}>Cancelar</Button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="font-medium">{d.nombre}:</span>
-                      <span>{d.direccion}{d.distrito ? `, ${d.distrito}` : ""}</span>
-                      <Button type="button" variant="link" size="xs" onClick={() => { setEditDirId(d.id); setEditDirForm({ nombre: d.nombre, direccion: d.direccion, distrito: d.distrito ?? "", tipoValvula: d.tipoValvula ?? "" }); }}>Editar</Button>
-                      <Button type="button" variant="link" size="xs" onClick={() => setDeleteDireccionPending(d.id)} disabled={saving} className="text-red-600">Eliminar</Button>
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
-            <form onSubmit={handleAddDireccion} className="flex gap-2 flex-wrap items-center">
-              <input value={nuevaDir.nombre} onChange={(e) => setNuevaDir((f) => ({ ...f, nombre: e.target.value }))} placeholder="Nombre (ej. Sucursal 2)" className="border rounded px-2 py-1 w-32" required />
-              <input value={nuevaDir.direccion} onChange={(e) => setNuevaDir((f) => ({ ...f, direccion: e.target.value }))} placeholder="Dirección" className="border rounded px-2 py-1 w-48" required />
-              <input value={nuevaDir.distrito} onChange={(e) => setNuevaDir((f) => ({ ...f, distrito: e.target.value }))} placeholder="Distrito" className="border rounded px-2 py-1 w-24" />
-              <Button type="submit" disabled={saving} size="sm">Agregar</Button>
-            </form>
-          </div>
-        </div>
-      )}
+          )}
+        </SheetContent>
+      </Sheet>
 
       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
         <p className="text-sm text-neutral-600">

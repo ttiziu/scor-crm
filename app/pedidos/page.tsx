@@ -20,6 +20,7 @@ import { clienteDisplayName } from "@/lib/cliente-display-name";
 import { EstadoPedidoBadge } from "@/components/estado-pedido-badge";
 import { FormaPagoBadge } from "@/components/forma-pago-badge";
 import { Pencil, Truck, CheckCircle, XCircle, ChevronLeft, ChevronRight, Eye, RefreshCw, CalendarIcon } from "lucide-react";
+import { PedidoEditSheet } from "./pedido-edit-sheet";
 import { format } from "date-fns";
 import { es as esDateFns } from "date-fns/locale";
 import { es as esDayPicker } from "react-day-picker/locale";
@@ -147,6 +148,7 @@ function PedidosContent() {
   const [estadoFiltro, setEstadoFiltro] = useState("");
   const [formaPagoFiltro, setFormaPagoFiltro] = useState("");
   const [cancelando, setCancelando] = useState<{ id: string; motivo: string } | null>(null);
+  const [editingPedidoId, setEditingPedidoId] = useState<string | null>(null);
   const [updatingEstadoId, setUpdatingEstadoId] = useState<string | null>(null);
   const [exportando, setExportando] = useState(false);
   const [formasPago, setFormasPago] = useState<{ value: string; label: string }[]>([]);
@@ -1106,6 +1108,24 @@ function PedidosContent() {
         </div>
       </div>
 
+      <PedidoEditSheet
+        pedidoId={editingPedidoId}
+        open={!!editingPedidoId}
+        onOpenChange={(open) => !open && setEditingPedidoId(null)}
+        onSaved={loadPedidos}
+        productos={productos}
+        marcas={marcas}
+        repartidores={repartidores}
+        formasPago={formasPago.length > 0 ? formasPago : [
+          { value: "YAPE", label: "Yape" },
+          { value: "PLIN", label: "Plin" },
+          { value: "TRANSFERENCIA", label: "Transferencia" },
+          { value: "EFECTIVO", label: "Efectivo" },
+          { value: "TARJETA", label: "Tarjeta" },
+        ]}
+        isAdmin={!!isAdmin}
+      />
+
       {cancelando && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-background border rounded-lg shadow-lg max-w-md w-full p-4">
@@ -1320,13 +1340,14 @@ function PedidosContent() {
                   <TableCell>{p.observaciones ?? "—"}</TableCell>
                   <TableCell className="align-middle">
                     <div className="flex items-center gap-1 flex-wrap">
-                      <Link
-                        href={`/pedidos/${p.id}`}
-                        title="Ver / Editar"
+                      <button
+                        type="button"
+                        onClick={() => setEditingPedidoId(p.id)}
+                        title="Editar"
                         className="inline-flex items-center justify-center h-8 w-8 rounded-md text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
                       >
                         <Pencil className="size-4" />
-                      </Link>
+                      </button>
                       {p.estado === "CREATED" && (
                         <Button
                           type="button"
